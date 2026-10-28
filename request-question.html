@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Request a Question</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Past examination questions for OGITECH students."
+    />
+    <link rel="icon" href="assets/images/logo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+    />
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <link rel="stylesheet" href="assets/css/pages.css" />
+  </head>
+  <body data-page="request" data-title="Request a Question">
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="site-header" id="header"></header>
+    <main id="main" class="wrap">
+      <div id="storage-note"></div>
+      <div class="page-head">
+        <h1>Request a Question</h1>
+        <p class="muted" id="intro"></p>
+      </div>
+      <div id="done" class="success" tabindex="-1" hidden></div>
+      <form id="req" class="form" novalidate>
+        <div class="half">
+          <div class="field">
+            <label for="name">Your name (optional)</label
+            ><input
+              id="name"
+              name="name"
+              autocomplete="name"
+              maxlength="80"
+              aria-describedby="err-name"
+            />
+            <p class="err" id="err-name"></p>
+          </div>
+          <div class="field">
+            <label for="email">Email (optional)</label
+            ><input
+              id="email"
+              name="email"
+              type="email"
+              inputmode="email"
+              autocomplete="email"
+              maxlength="120"
+              aria-describedby="err-email hint-email"
+            />
+            <p class="hint" id="hint-email">Only needed if you want a reply.</p>
+            <p class="err" id="err-email"></p>
+          </div>
+        </div>
+        <div class="field">
+          <label for="dept">Department</label
+          ><select
+            id="dept"
+            name="dept"
+            required
+            aria-required="true"
+            aria-describedby="err-dept"
+          ></select>
+          <p class="err" id="err-dept"></p>
+        </div>
+        <div class="half">
+          <div class="field">
+            <label for="prog">Programme</label
+            ><select
+              id="prog"
+              name="prog"
+              required
+              aria-required="true"
+              aria-describedby="err-prog"
+            ></select>
+            <p class="err" id="err-prog"></p>
+          </div>
+          <div class="field">
+            <label for="level">Level</label
+            ><select
+              id="level"
+              name="level"
+              required
+              aria-required="true"
+              aria-describedby="err-level"
+            ></select>
+            <p class="err" id="err-level"></p>
+          </div>
+        </div>
+        <div class="half">
+          <div class="field">
+            <label for="sem">Semester</label
+            ><select
+              id="sem"
+              name="sem"
+              required
+              aria-required="true"
+              aria-describedby="err-sem"
+            ></select>
+            <p class="err" id="err-sem"></p>
+          </div>
+          <div class="field">
+            <label for="year">Examination year (optional)</label
+            ><input
+              id="year"
+              name="year"
+              inputmode="numeric"
+              maxlength="4"
+              aria-describedby="err-year hint-year"
+            />
+            <p class="hint" id="hint-year">
+              Four digits, for example 2025. Leave blank if unknown.
+            </p>
+            <p class="err" id="err-year"></p>
+          </div>
+        </div>
+        <div class="half">
+          <div class="field">
+            <label for="code">Course code</label
+            ><input
+              id="code"
+              name="code"
+              maxlength="20"
+              required
+              aria-required="true"
+              autocapitalize="characters"
+              aria-describedby="err-code"
+            />
+            <p class="err" id="err-code"></p>
+          </div>
+          <div class="field">
+            <label for="title">Course title</label
+            ><input
+              id="title"
+              name="title"
+              maxlength="120"
+              required
+              aria-required="true"
+              aria-describedby="err-title"
+            />
+            <p class="err" id="err-title"></p>
+          </div>
+        </div>
+        <div class="field">
+          <label for="details">Additional details (optional)</label
+          ><textarea
+            id="details"
+            name="details"
+            maxlength="500"
+            aria-describedby="err-details counter"
+          ></textarea>
+          <p class="counter" id="counter">0 / 500</p>
+          <p class="err" id="err-details"></p>
+        </div>
+        <div>
+          <button type="submit" class="btn" id="submit">
+            Check my request
+          </button>
+        </div>
+      </form>
+    </main>
+    <footer class="site-footer" id="footer"></footer>
+    <script src="assets/js/store.js"></script>
+    <script src="assets/js/validation.js"></script>
+    <script src="assets/js/app.js"></script>
+    <script src="assets/js/request.js"></script>
+  </body>
+</html>

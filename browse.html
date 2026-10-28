@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Browse Questions</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Past examination questions for OGITECH students."
+    />
+    <link rel="icon" href="assets/images/logo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+    />
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <link rel="stylesheet" href="assets/css/pages.css" />
+  </head>
+  <body data-page="browse" data-title="Browse Questions">
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="site-header" id="header"></header>
+    <main id="main" class="wrap">
+      <div id="storage-note"></div>
+      <div class="page-head">
+        <h1>Browse Questions</h1>
+        <p class="muted">
+          Search by course code or title, then narrow by department, programme,
+          level, semester or year.
+        </p>
+      </div>
+      <details class="filters" id="filters">
+        <summary>Search and filters</summary>
+        <form id="filter-form" novalidate>
+          <div class="field full">
+            <label for="f-q">Course code or title</label
+            ><input
+              id="f-q"
+              type="search"
+              maxlength="80"
+              autocomplete="off"
+              placeholder="For example CSC 101 or programming"
+            />
+          </div>
+          <div class="field">
+            <label for="f-dept">Department</label
+            ><select id="f-dept"></select>
+          </div>
+          <div class="field">
+            <label for="f-prog">Programme</label
+            ><select id="f-prog"></select>
+          </div>
+          <div class="field">
+            <label for="f-level">Level</label
+            ><select id="f-level"></select>
+          </div>
+          <div class="field">
+            <label for="f-sem">Semester</label
+            ><select id="f-sem"></select>
+          </div>
+          <div class="field">
+            <label for="f-year">Examination year</label
+            ><select id="f-year"></select>
+          </div>
+          <div class="field" style="align-self: end">
+            <button type="button" class="btn alt" id="clear">
+              Clear filters
+            </button>
+          </div>
+        </form>
+      </details>
+      <p class="muted" id="count" role="status" aria-live="polite"></p>
+      <div id="results"></div>
+      <div class="more">
+        <button type="button" class="btn alt" id="more" hidden>
+          Load more
+        </button>
+      </div>
+    </main>
+    <footer class="site-footer" id="footer"></footer>
+    <script src="assets/js/store.js"></script>
+    <script src="assets/js/validation.js"></script>
+    <script src="assets/js/app.js"></script>
+    <script src="assets/js/browse.js"></script>
+  </body>
+</html>
