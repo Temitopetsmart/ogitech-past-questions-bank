@@ -401,41 +401,105 @@
       return ol;
     },
     leadership: function () {
-      var L = OGA.get().leadership,
-        wrap = h("div", { class: "two" });
+      var L = OGA.get().leadership;
+      var wrap = h("div", { class: "two leadership-grid" });
+
       ["rector", "sug"].forEach(function (k) {
         var p = L[k];
         if (!p || !p.visible) return;
-        var photo =
-          p.photo && safeHref(p.photo) !== "#"
-            ? h("img", {
-                src: p.photo,
-                alt: p.name ? "Portrait of " + p.name : "",
-                loading: "lazy",
-                width: "96",
-                height: "96",
-                style:
-                  "width:96px;height:96px;object-fit:cover;border-radius:50%;margin-bottom:.6rem",
-              })
-            : null;
-        if (photo)
+
+        var photoUrl = String(p.photo || "").trim();
+        var uploadedImage =
+          /^data:image\/(jpeg|png|webp);base64,[a-z0-9+/=]+$/i.test(photoUrl);
+
+        var hasPhoto =
+          photoUrl && (uploadedImage || safeHref(photoUrl) !== "#");
+
+        var photo = hasPhoto
+          ? h("img", {
+              class: "leadership-photo",
+              src: photoUrl,
+              alt: p.name ? "Portrait of " + p.name : "Leadership portrait",
+              loading: "lazy",
+              width: "128",
+              height: "128",
+            })
+          : h(
+              "div",
+              {
+                class: "leadership-photo-fallback",
+                "aria-hidden": "true",
+              },
+              [h("i", { class: "fa-solid fa-user-tie" })],
+            );
+
+        if (hasPhoto) {
           photo.onerror = function () {
-            photo.remove();
+            photo.replaceWith(
+              h(
+                "div",
+                {
+                  class: "leadership-photo-fallback",
+                  "aria-hidden": "true",
+                },
+                [h("i", { class: "fa-solid fa-user-tie" })],
+              ),
+            );
           };
+        }
+
+        var role = p.title || (k === "rector" ? "Rector" : "SUG President");
+
         wrap.appendChild(
-          h("div", { class: "card" }, [
+          h("article", { class: "card leadership-card" }, [
+            h("div", { class: "leadership-card-top" }, [
+              h(
+                "span",
+                {
+                  class: "leadership-role-icon",
+                  "aria-hidden": "true",
+                },
+                [
+                  h("i", {
+                    class:
+                      k === "rector"
+                        ? "fa-solid fa-building-columns"
+                        : "fa-solid fa-users",
+                  }),
+                ],
+              ),
+              h("span", {
+                class: "leadership-role",
+                text: role,
+              }),
+            ]),
+
             photo,
-            h("h3", { text: p.heading }),
-            h("p", { text: p.message }),
-            p.name || p.title
-              ? h("p", {
-                  class: "muted",
-                  text: [p.name, p.title].filter(Boolean).join(", "),
-                })
-              : null,
+
+            h("div", { class: "leadership-identity" }, [
+              h("h3", {
+                class: "leadership-name",
+                text: p.name || role,
+              }),
+              h("p", {
+                class: "leadership-title",
+                text: p.name ? role : "",
+              }),
+            ]),
+
+            h("div", { class: "leadership-message" }, [
+              h("i", {
+                class: "fa-solid fa-quote-left leadership-quote",
+                "aria-hidden": "true",
+              }),
+              h("p", {
+                text: p.message || "",
+              }),
+            ]),
           ]),
         );
       });
+
       return wrap.children.length ? wrap : null;
     },
     featured: function (sec) {
@@ -462,36 +526,116 @@
           return a.published;
         })
         .sort(function (a, b) {
-          return b.featured - a.featured || b.date.localeCompare(a.date);
+          return (
+            Number(b.featured) - Number(a.featured) ||
+            b.date.localeCompare(a.date)
+          );
         })
         .slice(0, sec.limit);
-      if (!list.length)
-        return h("p", { class: "empty", text: "No announcements right now." });
-      var box = h("div", { class: "grid" });
+
+      if (!list.length) {
+        return h("p", {
+          class: "empty",
+          text: "No announcements available at the moment.",
+        });
+      }
+
+      var box = h("div", { class: "grid announcement-grid" });
+
       list.forEach(function (a) {
-        var im =
-          a.image && safeHref(a.image) !== "#"
+        var imageUrl = String(a.image || "").trim();
+
+        var image =
+          imageUrl && safeHref(imageUrl) !== "#"
             ? h("img", {
-                src: a.image,
+                class: "announcement-image",
+                src: imageUrl,
                 alt: "",
                 loading: "lazy",
-                style:
-                  "width:100%;max-height:140px;object-fit:cover;border-radius:4px;margin-bottom:.5rem",
               })
-            : null;
-        if (im)
-          im.onerror = function () {
-            im.remove();
+            : h(
+                "div",
+                {
+                  class: "announcement-image-fallback",
+                  "aria-hidden": "true",
+                },
+                [h("i", { class: "fa-regular fa-newspaper" })],
+              );
+
+        if (imageUrl && image.tagName === "IMG") {
+          image.onerror = function () {
+            image.replaceWith(
+              h(
+                "div",
+                {
+                  class: "announcement-image-fallback",
+                  "aria-hidden": "true",
+                },
+                [h("i", { class: "fa-regular fa-newspaper" })],
+              ),
+            );
           };
+        }
+
+        var body = h("div", { class: "announcement-body" }, [
+          h("div", { class: "announcement-meta" }, [
+            h("span", { class: "announcement-date" }, [
+              h("i", {
+                class: "fa-regular fa-calendar",
+                "aria-hidden": "true",
+              }),
+              " " + a.date,
+            ]),
+            a.featured
+              ? h("span", { class: "announcement-featured" }, [
+                  h("i", {
+                    class: "fa-solid fa-star",
+                    "aria-hidden": "true",
+                  }),
+                  " Featured",
+                ])
+              : null,
+          ]),
+
+          h("h3", {
+            class: "announcement-title",
+            text: a.title,
+          }),
+
+          h("p", {
+            class: "announcement-summary",
+            text: a.summary,
+          }),
+        ]);
+
+        var fullText = String(a.content || "").trim();
+
+        if (fullText && fullText !== String(a.summary || "").trim()) {
+          body.appendChild(
+            h("details", { class: "announcement-details" }, [
+              h("summary", {}, [
+                "Read full announcement ",
+                h("i", {
+                  class: "fa-solid fa-arrow-right",
+                  "aria-hidden": "true",
+                }),
+              ]),
+              h("p", {
+                class: "announcement-content",
+                text: fullText,
+              }),
+            ]),
+          );
+        }
+
         box.appendChild(
-          h("div", { class: "card" }, [
-            im,
-            h("h3", { text: a.title }),
-            h("p", { class: "muted", text: a.date }),
-            h("p", { text: a.summary }),
+          h("article", { class: "card announcement-card" }, [
+            h("div", { class: "announcement-media" }, [image]),
+            body,
           ]),
         );
       });
+
       return box;
     },
   };
@@ -542,6 +686,62 @@
     if (window.OGAPage && window.OGAPage.render) window.OGAPage.render(s);
   }
 
+
+  function patchActionIcons(root) {
+    var rules = [
+      [/^search|find a question/i, "fa-magnifying-glass"],
+      [/^clear|reset filters/i, "fa-rotate-left"],
+      [/^browse|back to results|all questions/i, "fa-book-open"],
+      [/^download/i, "fa-download"],
+      [/^request/i, "fa-paper-plane"],
+      [/^send feedback|contact/i, "fa-envelope"],
+      [/^submit|save|add |create |upload|import/i, "fa-floppy-disk"],
+      [/^edit|change|update/i, "fa-pen-to-square"],
+      [/^delete|remove/i, "fa-trash"],
+      [/^cancel|close/i, "fa-xmark"],
+      [/^preview|view details|read more|learn more/i, "fa-eye"],
+      [/^next/i, "fa-arrow-right"],
+      [/^previous|^prev/i, "fa-arrow-left"],
+      [/^login|sign in/i, "fa-right-to-bracket"],
+      [/^logout|sign out/i, "fa-right-from-bracket"],
+      [/^dashboard/i, "fa-gauge-high"],
+      [/^settings|preferences/i, "fa-gear"],
+      [/^export/i, "fa-file-export"],
+      [/^publish/i, "fa-globe"],
+      [/^unpublish/i, "fa-eye-slash"],
+      [/^feature/i, "fa-star"],
+      [/^filter/i, "fa-filter"],
+      [/^refresh|reload/i, "fa-arrows-rotate"],
+      [/^view public website|public site/i, "fa-arrow-up-right-from-square"]
+    ];
+
+    function apply(node) {
+      if (!node || node.nodeType !== 1) return;
+      if (!node.matches("a, button")) return;
+      if (node.querySelector(".fa-solid, .fa-regular, .fa-brands")) return;
+
+      var label = (
+        node.getAttribute("aria-label") || node.textContent || ""
+      ).replace(/\s+/g, " ").trim();
+
+      for (var i = 0; i < rules.length; i++) {
+        if (rules[i][0].test(label)) {
+          var icon = document.createElement("i");
+          icon.className = "fa-solid " + rules[i][1] + " fa-icon-patch";
+          icon.setAttribute("aria-hidden", "true");
+          node.insertBefore(icon, node.firstChild);
+          return;
+        }
+      }
+    }
+
+    apply(root);
+
+    if (root.querySelectorAll) {
+      root.querySelectorAll("a, button").forEach(apply);
+    }
+  }
+
   window.OGAUI = {
     h: h,
     clear: clear,
@@ -550,6 +750,22 @@
     renderAll: renderAll,
   };
   renderAll();
+
+  patchActionIcons(document);
+
+  if (window.MutationObserver) {
+    new MutationObserver(function (records) {
+      records.forEach(function (record) {
+        record.addedNodes.forEach(function (node) {
+          if (node.nodeType === 1) patchActionIcons(node);
+        });
+      });
+    }).observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
+
   OGA.onChange(renderAll); // reflect admin edits made in another tab
 
   /*

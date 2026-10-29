@@ -87,14 +87,69 @@
       ].forEach(function (x) {
         F[id + "." + x[0]] = x[1];
         form.appendChild(x[1].wrap);
-        if (x[0] === "photo")
-          form.appendChild(
-            A.filePicker({
-              id: id + "-file",
-              label: "Preview a portrait file",
-              kind: "image",
-            }),
-          );
+        if (x[0] === "photo") {
+          (function (photoField, profileId) {
+            var uploadWrap = h("div", {
+              class: "admin-image-upload",
+            });
+
+            var label = h("label", {
+              for: profileId + "-upload",
+              text: "Upload portrait image",
+            });
+
+            var input = h("input", {
+              id: profileId + "-upload",
+              type: "file",
+              accept: "image/jpeg,image/png,image/webp",
+            });
+
+            var help = h("p", {
+              class: "muted",
+              text: "JPEG, PNG or WebP. Maximum size: 500 KB.",
+            });
+
+            input.addEventListener("change", function () {
+              var file = input.files && input.files[0];
+
+              if (!file) return;
+
+              if (
+                !/^image\/(jpeg|png|webp)$/.test(file.type) ||
+                file.size > 512000
+              ) {
+                input.value = "";
+                A.notify(
+                  "Choose a JPEG, PNG or WebP image no larger than 500 KB.",
+                  "error",
+                );
+                return;
+              }
+
+              var reader = new FileReader();
+
+              reader.onload = function () {
+                photoField.input.value = String(reader.result || "");
+                A.editing = true;
+
+                A.notify(
+                  "Portrait selected. Click Save leadership to save it.",
+                );
+              };
+
+              reader.onerror = function () {
+                A.notify("Unable to read the image.", "error");
+              };
+
+              reader.readAsDataURL(file);
+            });
+
+            uploadWrap.appendChild(label);
+            uploadWrap.appendChild(input);
+            uploadWrap.appendChild(help);
+            form.appendChild(uploadWrap);
+          })(F[id + ".photo"], id);
+        }
       });
     });
     form.appendChild(
