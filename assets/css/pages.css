@@ -160,3 +160,125 @@ dl.meta dd {
 .prose {
   max-width: 68ch;
 }
+
+/* =========================================================
+   Browse Questions: search controls and numbered pagination
+   ========================================================= */
+
+.filters > h2 {
+  font-size: 1.05rem;
+  margin: 0;
+  padding: 1rem 1rem 0;
+}
+
+.filters form {
+  padding-top: 1rem;
+}
+
+.filter-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.25rem;
+}
+
+.filter-actions .btn {
+  min-height: 44px;
+}
+
+.results-section {
+  margin-top: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.results-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.results-heading h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.results-heading p {
+  margin: 0.3rem 0 0;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1.5rem 0 2rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.pagination[hidden] {
+  display: none;
+}
+
+.pagination-button {
+  min-height: 44px;
+  min-width: 112px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pagination-status {
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 100px;
+  text-align: center;
+}
+
+.pagination-button:focus-visible,
+.filter-actions .btn:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 3px;
+}
+
+.result-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 480px) {
+  .filter-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .filter-actions .btn {
+    width: 100%;
+  }
+
+  .pagination {
+    gap: 0.5rem;
+  }
+
+  .pagination-button {
+    min-width: 0;
+    flex: 1;
+    padding-inline: 0.65rem;
+  }
+
+  .pagination-status {
+    order: -1;
+    flex-basis: 100%;
+    margin-bottom: 0.25rem;
+  }
+}

@@ -41,12 +41,98 @@
   function buildNav() {
     var nav = $("anav");
     if (!nav) return;
+
     clear(nav);
-    var cur = A.current();
-    order.forEach(function (v) {
-      var a = h("a", { href: "#" + v.id, text: v.label });
-      if (v.id === cur) a.setAttribute("aria-current", "page");
-      nav.appendChild(a);
+
+    var current = A.current();
+
+    var iconMap = {
+      dashboard: "fa-gauge-high",
+      questions: "fa-file-lines",
+      departments: "fa-building",
+      requests: "fa-inbox",
+      "question-requests": "fa-inbox",
+      hero: "fa-panorama",
+      settings: "fa-sliders",
+      leadership: "fa-users",
+      announcements: "fa-bullhorn",
+      layout: "fa-table-columns",
+      data: "fa-database",
+    };
+
+    var groupMap = {
+      dashboard: "Overview",
+      questions: "Academic content",
+      departments: "Academic content",
+      requests: "Academic content",
+      "question-requests": "Academic content",
+      hero: "Website management",
+      settings: "Website management",
+      leadership: "Website management",
+      announcements: "Website management",
+      layout: "Website management",
+      data: "System",
+    };
+
+    var groupOrder = [
+      "Overview",
+      "Academic content",
+      "Website management",
+      "System",
+      "Other",
+    ];
+
+    var groups = {};
+
+    order.forEach(function (view) {
+      var groupName = groupMap[view.id] || "Other";
+
+      if (!groups[groupName]) groups[groupName] = [];
+
+      groups[groupName].push(view);
+    });
+
+    groupOrder.forEach(function (groupName) {
+      var items = groups[groupName];
+
+      if (!items || !items.length) return;
+
+      var group = h("section", {
+        class: "admin-nav-group",
+        "aria-label": groupName,
+      });
+
+      group.appendChild(
+        h("p", {
+          class: "admin-nav-heading",
+          text: groupName,
+        }),
+      );
+
+      items.forEach(function (view) {
+        var link = h("a", {
+          href: "#" + view.id,
+          "aria-label": view.label,
+        });
+
+        var icon = h("i", {
+          class: "fa-solid " + (iconMap[view.id] || "fa-circle-dot"),
+          "aria-hidden": "true",
+        });
+
+        var label = h("span", { text: view.label });
+
+        link.appendChild(icon);
+        link.appendChild(label);
+
+        if (view.id === current) {
+          link.setAttribute("aria-current", "page");
+        }
+
+        group.appendChild(link);
+      });
+
+      nav.appendChild(group);
     });
   }
   A.current = function () {
@@ -55,28 +141,57 @@
   };
 
   A.route = function () {
-    var id = A.current(),
-      view = $("view");
+    var id = A.current();
+    var view = $("view");
+
     A.editing = false;
     clear(view);
     buildNav();
-    views[id](view);
-    var t = view.querySelector("h1");
-    document.title = (t ? t.textContent : "Admin") + " | Admin demo";
+
+    if (typeof views[id] === "function") {
+      views[id](view);
+    }
+
+    var heading = view.querySelector("h1");
+    var title = heading ? heading.textContent : "Dashboard";
+    var pageTitle = $("admin-page-title");
+
+    if (pageTitle) pageTitle.textContent = title;
+
+    document.title = title + " | OGITECH Administration";
+
     view.focus();
     window.scrollTo(0, 0);
   };
 
   A.notify = function (msg, type) {
+    if (window.Swal && typeof window.Swal.mixin === "function") {
+      var toast = window.Swal.mixin({
+        toast: true,
+        position: "top-end",
+        showConfirmButton: false,
+        timer: type === "error" ? 6500 : 3200,
+        timerProgressBar: true,
+      });
+
+      toast.fire({
+        icon: type === "error" ? "error" : "success",
+        title: String(msg || ""),
+      });
+
+      return;
+    }
+
     var t = $("toast");
+    if (!t) return;
+
     clear(t);
-    t.appendChild(h("p", { class: type || "ok", text: msg }));
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(
-      function () {
-        clear(t);
-      },
-      type === "error" ? 8000 : 4000,
+    t.appendChild(
+      h("p", {
+        class: type || "ok",
+        role: type === "error" ? "alert" : "status",
+        text: msg,
+      }),
     );
   };
 
@@ -217,14 +332,38 @@
     (acts.querySelector("button") || dlg).focus();
     return close;
   };
+
   A.confirm = function (title, text, label, onYes) {
+    if (window.Swal && typeof window.Swal.fire === "function") {
+      window.Swal.fire({
+        title: title,
+        text: text,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: label || "Confirm",
+        cancelButtonText: "Cancel",
+        reverseButtons: true,
+        focusCancel: true,
+      }).then(function (result) {
+        if (result.isConfirmed && typeof onYes === "function") {
+          onYes();
+        }
+      });
+
+      return;
+    }
+
     A.modal(
       title,
       [h("p", { text: text })],
       [
-        { label: "Cancel", cls: "alt", onClick: function () {} },
         {
-          label: label,
+          label: "Cancel",
+          cls: "alt",
+          onClick: function () {},
+        },
+        {
+          label: label || "Confirm",
           cls: "danger",
           onClick: function () {
             onYes();
@@ -417,40 +556,103 @@
   });
 
   function start() {
-    var gate = $("gate"),
-      app = $("app"),
-      ok = false;
-    try {
-      ok = sessionStorage.getItem("oga_admin_demo") === "1";
-    } catch (e) {}
-    function open() {
-      gate.hidden = true;
-      app.hidden = false;
-      A.route();
+    var app = $("app");
+    if (!app) return;
+
+    app.hidden = false;
+
+    function closeSidebar() {
+      var sidebar = $("admin-sidebar");
+      var toggle = $("admin-menu-toggle");
+      var backdrop = $("admin-sidebar-backdrop");
+
+      if (sidebar) sidebar.classList.remove("is-open");
+      if (backdrop) backdrop.hidden = true;
+
+      if (toggle) {
+        toggle.setAttribute("aria-expanded", "false");
+        toggle.setAttribute("aria-label", "Open navigation");
+        toggle.innerHTML =
+          '<i class="fa-solid fa-bars" aria-hidden="true"></i>';
+      }
     }
-    if (ok) open();
-    else {
-      gate.hidden = false;
-      app.hidden = true;
+
+    function openSidebar() {
+      var sidebar = $("admin-sidebar");
+      var toggle = $("admin-menu-toggle");
+      var backdrop = $("admin-sidebar-backdrop");
+
+      if (!sidebar || !toggle || !backdrop) return;
+
+      sidebar.classList.add("is-open");
+      backdrop.hidden = false;
+      toggle.setAttribute("aria-expanded", "true");
+      toggle.setAttribute("aria-label", "Close navigation");
+      toggle.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
     }
-    $("enter").addEventListener("click", function () {
-      try {
-        sessionStorage.setItem("oga_admin_demo", "1");
-      } catch (e) {}
-      open();
+
+    var toggle = $("admin-menu-toggle");
+    var backdrop = $("admin-sidebar-backdrop");
+
+    if (toggle) {
+      toggle.addEventListener("click", function () {
+        var sidebar = $("admin-sidebar");
+
+        if (sidebar && sidebar.classList.contains("is-open")) {
+          closeSidebar();
+        } else {
+          openSidebar();
+        }
+      });
+    }
+
+    if (backdrop) {
+      backdrop.addEventListener("click", closeSidebar);
+    }
+
+    var nav = $("anav");
+
+    if (nav) {
+      nav.addEventListener("click", function (event) {
+        var link = event.target.closest("a[href^='#']");
+
+        if (link) closeSidebar();
+      });
+    }
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") closeSidebar();
     });
+
+    if (!location.hash || !views[location.hash.slice(1)]) {
+      history.replaceState(
+        null,
+        "",
+        location.pathname + location.search + "#dashboard",
+      );
+    }
+
+    A.route();
+
     window.addEventListener("hashchange", function () {
-      if (!app.hidden) A.route();
+      A.route();
+      closeSidebar();
     });
-    /* Other tab changed data: refresh unless the admin is mid-edit. */
+
+    /*
+     * Changes from another tab can refresh the view.
+     * If a form is being edited, don't silently discard that work.
+     */
     OGA.onChange(function () {
-      if (app.hidden) return;
-      if (A.editing)
+      if (A.editing) {
         A.notify(
-          "Data changed in another tab. Save or cancel your edit, then reopen this page to see it.",
+          "Content changed in another tab. Save or reopen your current section to review the latest changes.",
           "error",
         );
-      else A.route();
+        return;
+      }
+
+      A.route();
     });
   }
   window.OGAAdmin = A;

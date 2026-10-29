@@ -1,293 +1,421 @@
-/* Homepage hero editor: slides are edited as a draft and only saved on "Save hero". */
+/*
+ * Homepage hero editor.
+ * One hero slide and one replaceable custom image.
+ * The default image remains in assets/images/gate.png.
+ *
+ * Frontend-only storage: uploaded images are stored as data URLs.
+ * The PHP backend will later replace this with a real file upload.
+ */
 (function () {
-  var A = OGAAdmin,
-    h = A.h;
+  "use strict";
 
-  A.register("hero", "Hero slides", function (root) {
-    var draft = JSON.parse(JSON.stringify(OGA.get().hero)),
-      fields = [],
-      preview = h("div");
+  var A = OGAAdmin;
+  var h = A.h;
+  var DEFAULT_IMAGE = "assets/images/gate.png";
+  var MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+
+  A.register("hero", "Homepage hero", function (root) {
+    var existing = OGA.get().hero || [];
+    var original = existing[0] || {
+      id: "homepage-hero",
+      enabled: true,
+      eyebrow: "Your study resource",
+      heading: "Prepare Better. Study Smarter.",
+      text: "Find past examination questions by department, programme, level, semester and course.",
+      image: "",
+      primaryLabel: "Search",
+      secondaryLabel: "Browse Questions",
+      secondaryHref: "browse.html",
+    };
+
+    var draft = JSON.parse(JSON.stringify(original));
+    var uploadedImage = "";
+    var fileInput;
+    var preview = h("div", { class: "hero-editor-preview" });
+    var imageStatus = h("p", {
+      class: "hint",
+      role: "status",
+    });
+
+    function field(label, value, options) {
+      options = options || {};
+
+      var input = options.multiline
+        ? h("textarea", {
+            rows: options.rows || "4",
+            maxlength: String(options.maxlength || 200),
+          })
+        : h("input", {
+            type: "text",
+            maxlength: String(options.maxlength || 80),
+          });
+
+      input.value = value || "";
+
+      var labelEl = h("label", {
+        text: label,
+      });
+
+      labelEl.appendChild(input);
+
+      var wrap = h("div", { class: "field" }, [labelEl]);
+
+      if (options.hint) {
+        wrap.appendChild(
+          h("p", {
+            class: "hint",
+            text: options.hint,
+          }),
+        );
+      }
+
+      return {
+        wrap: wrap,
+        input: input,
+      };
+    }
+
+    var eyebrow = field("Small heading", draft.eyebrow, {
+      maxlength: 40,
+    });
+
+    var heading = field("Main heading", draft.heading, {
+      maxlength: 60,
+    });
+
+    var description = field("Description", draft.text, {
+      multiline: true,
+      rows: 4,
+      maxlength: 200,
+    });
+
+    var primaryLabel = field("Search button label", draft.primaryLabel, {
+      maxlength: 20,
+    });
+
+    var secondaryLabel = field("Secondary button label", draft.secondaryLabel, {
+      maxlength: 30,
+    });
+
+    var secondaryHref = field(
+      "Secondary button destination",
+      draft.secondaryHref,
+      {
+        maxlength: 200,
+        hint: "For example, browse.html",
+      },
+    );
+
+    var enabled = h("input", {
+      type: "checkbox",
+    });
+    enabled.checked = draft.enabled !== false;
+
+    var enabledLabel = h(
+      "label",
+      {
+        class: "chk",
+      },
+      [
+        enabled,
+        h("span", {
+          text: "Show the hero on the homepage",
+        }),
+      ],
+    );
+
+    var uploadButton = h("button", {
+      type: "button",
+      class: "btn",
+      text: "Upload hero image",
+    });
+
+    var replaceButton = h("button", {
+      type: "button",
+      class: "btn alt",
+      text: "Replace image",
+    });
+
+    var defaultButton = h("button", {
+      type: "button",
+      class: "btn alt",
+      text: "Use default image",
+    });
+
+    var saveButton = h("button", {
+      type: "button",
+      class: "btn",
+      text: "Save hero changes",
+    });
+
+    fileInput = h("input", {
+      type: "file",
+      accept: "image/jpeg,image/png,image/webp,image/gif",
+      "aria-label": "Choose a hero image",
+    });
+
+    fileInput.hidden = true;
+
+    function currentImage() {
+      return uploadedImage || draft.image || "";
+    }
+
+    function isDataImage(value) {
+      return /^data:image\/(jpeg|png|webp|gif);base64,/i.test(value || "");
+    }
+
+    function previewUrl(value) {
+      if (!value) return "../" + DEFAULT_IMAGE;
+
+      if (isDataImage(value)) return value;
+
+      if (/^https?:\/\//i.test(value)) return value;
+
+      return "../" + value.replace(/^(\.\.\/)+/, "").replace(/^\/+/, "");
+    }
+
+    function paintPreview() {
+      A.clear(preview);
+
+      var image = h("img", {
+        class: "hero-editor-image",
+        alt: "Preview of the homepage hero image",
+      });
+
+      image.src = previewUrl(currentImage());
+
+      image.onerror = function () {
+        image.onerror = null;
+        image.src = "../" + DEFAULT_IMAGE;
+        imageStatus.textContent =
+          "The selected image could not be displayed. The default image is shown instead.";
+      };
+
+      preview.appendChild(image);
+
+      preview.appendChild(
+        h("div", { class: "hero-editor-preview-copy" }, [
+          h("span", {
+            class: "hero-editor-eyebrow",
+            text: eyebrow.input.value || "Your study resource",
+          }),
+          h("h2", {
+            text: heading.input.value || "Your homepage heading",
+          }),
+          h("p", {
+            text:
+              description.input.value || "Your hero description appears here.",
+          }),
+          h("span", {
+            class: "hero-editor-preview-button",
+            text: primaryLabel.input.value || "Search",
+          }),
+        ]),
+      );
+
+      imageStatus.textContent = uploadedImage
+        ? "A new image is selected. Save your changes to apply it."
+        : draft.image
+          ? "Current custom hero image."
+          : "Using the default hero image.";
+    }
+
+    function markChanged() {
+      A.editing = true;
+      paintPreview();
+    }
+
+    [
+      eyebrow,
+      heading,
+      description,
+      primaryLabel,
+      secondaryLabel,
+      secondaryHref,
+    ].forEach(function (item) {
+      item.input.addEventListener("input", markChanged);
+    });
+
+    enabled.addEventListener("change", markChanged);
+
+    function openFilePicker() {
+      fileInput.click();
+    }
+
+    uploadButton.addEventListener("click", openFilePicker);
+    replaceButton.addEventListener("click", openFilePicker);
+
+    fileInput.addEventListener("change", function () {
+      var file = fileInput.files && fileInput.files[0];
+
+      if (!file) return;
+
+      if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type)) {
+        A.notify("Choose a JPG, PNG, WEBP or GIF image.", "error");
+        fileInput.value = "";
+        return;
+      }
+
+      if (file.size > MAX_IMAGE_BYTES) {
+        A.notify("The image must be 2 MB or smaller.", "error");
+        fileInput.value = "";
+        return;
+      }
+
+      var reader = new FileReader();
+
+      reader.onerror = function () {
+        A.notify("The selected image could not be read.", "error");
+        fileInput.value = "";
+      };
+
+      reader.onload = function () {
+        if (typeof reader.result !== "string" || !isDataImage(reader.result)) {
+          A.notify("This image format could not be processed.", "error");
+          fileInput.value = "";
+          return;
+        }
+
+        uploadedImage = reader.result;
+        A.editing = true;
+        paintPreview();
+        A.notify("Image selected. Save to publish the change.");
+      };
+
+      reader.readAsDataURL(file);
+    });
+
+    defaultButton.addEventListener("click", function () {
+      A.confirm(
+        "Use the default hero image?",
+        "The custom image will be removed from the saved hero and the built-in image will be used instead.",
+        "Use default image",
+        function () {
+          uploadedImage = "";
+          draft.image = "";
+          A.editing = true;
+          fileInput.value = "";
+          paintPreview();
+        },
+      );
+    });
+
+    saveButton.addEventListener("click", function () {
+      var cleanHeading = heading.input.value.trim();
+      var cleanPrimary = primaryLabel.input.value.trim();
+      var cleanDestination = secondaryHref.input.value.trim();
+
+      if (cleanHeading.length < 2) {
+        A.notify("Enter a heading with at least 2 characters.", "error");
+        heading.input.focus();
+        return;
+      }
+
+      if (!cleanPrimary) {
+        A.notify("Enter a label for the search button.", "error");
+        primaryLabel.input.focus();
+        return;
+      }
+
+      if (
+        cleanDestination &&
+        A.safeHref(cleanDestination) === "#" &&
+        cleanDestination !== "#"
+      ) {
+        A.notify("Enter a valid secondary button destination.", "error");
+        secondaryHref.input.focus();
+        return;
+      }
+
+      var finalImage = uploadedImage || draft.image || "";
+
+      if (
+        finalImage &&
+        !isDataImage(finalImage) &&
+        A.safeHref(finalImage) === "#"
+      ) {
+        A.notify("The existing hero image path is invalid.", "error");
+        return;
+      }
+
+      var clean = {
+        id: draft.id || "homepage-hero",
+        enabled: enabled.checked,
+        eyebrow: eyebrow.input.value.trim(),
+        heading: cleanHeading,
+        text: description.input.value.trim(),
+        image: finalImage,
+        primaryLabel: cleanPrimary,
+        secondaryLabel: secondaryLabel.input.value.trim(),
+        secondaryHref: cleanDestination || "browse.html",
+      };
+
+      var result = A.commit(function (state) {
+        /*
+         * Keep one hero record rather than accumulating slides.
+         * The image itself is replaced in this record.
+         */
+        state.hero = [clean];
+      }, "Homepage hero updated");
+
+      if (result) {
+        draft = JSON.parse(JSON.stringify(clean));
+        uploadedImage = "";
+        fileInput.value = "";
+        A.editing = false;
+        paintPreview();
+        A.notify("Homepage hero saved successfully.");
+      }
+    });
+
     root.appendChild(
       A.title(
         "Homepage hero",
-        "Edit slides, reorder them, then save. The public homepage shows only enabled slides, in this order.",
+        "Update the homepage message and image. The default image is restored whenever no custom image is selected.",
       ),
     );
-    var list = h("div"),
-      msgBox = h("p", { class: "hint", role: "status" });
 
-    function dirty() {
-      A.editing = true;
-      paint();
-    }
-    function paint() {
-      A.clear(preview);
-      var s = draft.filter(function (x) {
-        return x.enabled;
-      })[0];
-      if (!s) {
-        preview.appendChild(
-          h("p", {
-            class: "notice",
-            text: "No slide is enabled, so the homepage will not show a hero section.",
-          }),
-        );
-        return;
-      }
-      var box = h("div", { class: "prev-hero" }, [
-        h("p", {
-          class: "muted",
-          style: "color:#d6e6dc",
-          text: "Preview of the first enabled slide",
-        }),
-        h("h3", { text: s.heading || "(heading)" }),
-        h("p", { text: s.text }),
-        h("span", { class: "btn sm", text: s.primaryLabel || "Search" }),
-        " ",
-        h("span", {
-          class: "btn sm ghost",
-          text: s.secondaryLabel || "Browse Questions",
-        }),
-      ]);
-      if (s.image && A.safeHref(s.image) !== "#")
-        box.style.backgroundImage =
-          'linear-gradient(rgba(8,68,31,.8),rgba(8,68,31,.8)),url("' +
-          encodeURI((/^https?:/i.test(s.image) ? "" : "../") + s.image).replace(
-            /"/g,
-            "",
-          ) +
-          '")';
-      preview.appendChild(box);
-    }
-
-    function renderList() {
-      A.clear(list);
-      fields = [];
-      draft.forEach(function (s, i) {
-        var p = "sl" + i + "-",
-          f = {
-            eyebrow: A.field({
-              id: p + "eyebrow",
-              label: "Small heading above the title",
-              value: s.eyebrow,
-              maxlength: 40,
-            }),
-            heading: A.field({
-              id: p + "heading",
-              label: "Heading",
-              value: s.heading,
-              maxlength: 60,
-              required: true,
-            }),
-            text: A.field({
-              id: p + "text",
-              label: "Description",
-              type: "textarea",
-              value: s.text,
-              maxlength: 200,
-            }),
-            image: A.field({
-              id: p + "image",
-              label: "Background image path",
-              value: s.image,
-              maxlength: 200,
-              hint: "For example assets/images/gate.jpg. Leave blank for plain green.",
-            }),
-            primaryLabel: A.field({
-              id: p + "pl",
-              label: "Search button label",
-              value: s.primaryLabel,
-              maxlength: 20,
-              required: true,
-            }),
-            secondaryLabel: A.field({
-              id: p + "sl",
-              label: "Second button label",
-              value: s.secondaryLabel,
-              maxlength: 30,
-            }),
-            secondaryHref: A.field({
-              id: p + "sh",
-              label: "Second button destination",
-              value: s.secondaryHref,
-              maxlength: 200,
-              hint: "A page such as browse.html, or an https link.",
-            }),
-            enabled: A.field({
-              id: p + "en",
-              label: "Show this slide on the homepage",
-              type: "checkbox",
-              value: s.enabled,
-            }),
-          };
-        Object.keys(f).forEach(function (k) {
-          var ev = k === "enabled" ? "change" : "input";
-          f[k].input.addEventListener(ev, function () {
-            s[k] = f[k].get();
-            dirty();
-          });
-        });
-        fields.push(f);
-        var up = h("button", {
-            type: "button",
-            class: "btn alt sm",
-            text: "Move up",
-            "aria-label": "Move slide " + (i + 1) + " up",
-          }),
-          dn = h("button", {
-            type: "button",
-            class: "btn alt sm",
-            text: "Move down",
-            "aria-label": "Move slide " + (i + 1) + " down",
-          });
-        var del = h("button", {
-          type: "button",
-          class: "btn danger sm",
-          text: "Delete",
-          "aria-label": "Delete slide " + (i + 1),
-        });
-        if (i === 0) up.setAttribute("disabled", "");
-        if (i === draft.length - 1) dn.setAttribute("disabled", "");
-        up.onclick = function () {
-          draft.splice(i - 1, 0, draft.splice(i, 1)[0]);
-          A.editing = true;
-          renderList();
-          paint();
-        };
-        dn.onclick = function () {
-          draft.splice(i + 1, 0, draft.splice(i, 1)[0]);
-          A.editing = true;
-          renderList();
-          paint();
-        };
-        del.onclick = function () {
-          A.confirm(
-            "Delete slide " + (i + 1) + "?",
-            "It is removed from this draft. The public site changes only after you save.",
-            "Delete slide",
-            function () {
-              draft.splice(i, 1);
-              A.editing = true;
-              renderList();
-              paint();
-            },
-          );
-        };
-        var card = h(
-          "section",
-          { class: "slide-card", "aria-label": "Slide " + (i + 1) },
-          [h("h2", { text: "Slide " + (i + 1) })],
-        );
-        Object.keys(f).forEach(function (k) {
-          card.appendChild(f[k].wrap);
-        });
-        card.insertBefore(
-          A.filePicker({
-            id: p + "file",
-            label: "Preview an image file",
-            kind: "image",
-          }),
-          f.primaryLabel.wrap,
-        );
-        card.appendChild(
-          h(
-            "div",
-            { class: "acts", style: "display:flex;gap:.5rem;flex-wrap:wrap" },
-            [up, dn, del],
-          ),
-        );
-        list.appendChild(card);
-      });
-      if (!draft.length)
-        list.appendChild(
-          h("p", {
-            class: "empty",
-            text: "No slides. Add one to show a hero on the homepage.",
-          }),
-        );
-    }
-
-    var add = h("button", {
-      type: "button",
-      class: "btn alt",
-      text: "Add slide",
-    });
-    add.onclick = function () {
-      draft.push({
-        id: "s" + Date.now().toString(36),
-        enabled: true,
-        eyebrow: "",
-        heading: "New slide",
-        text: "",
-        image: "",
-        primaryLabel: "Search",
-        secondaryLabel: "Browse Questions",
-        secondaryHref: "browse.html",
-      });
-      A.editing = true;
-      renderList();
-      paint();
-    };
-    var save = h("button", { type: "button", class: "btn", text: "Save hero" });
-    save.onclick = function () {
-      var bad = false,
-        firstField = null;
-      fields.forEach(function (f, i) {
-        var s = draft[i],
-          er = {};
-        if (!s.heading.trim() || s.heading.trim().length < 2)
-          er.heading = "Heading must be 2 to 60 characters.";
-        if (!s.primaryLabel.trim())
-          er.primaryLabel = "Button label is required.";
-        if (s.image && A.safeHref(s.image) === "#")
-          er.image =
-            "Enter a path such as assets/images/gate.jpg, or an https link.";
-        if (
-          s.secondaryHref &&
-          A.safeHref(s.secondaryHref) === "#" &&
-          s.secondaryHref !== "#"
-        )
-          er.secondaryHref =
-            "Enter a page such as browse.html, or an https link.";
-        Object.keys(f).forEach(function (k) {
-          var m = f[k].error(er[k]);
-          if (m && !firstField) firstField = f[k];
-          if (m) bad = true;
-        });
-      });
-      if (bad) {
-        firstField.input.focus();
-        A.notify("Hero was not saved. Fix the highlighted fields.", "error");
-        return;
-      }
-      var clean = draft.map(function (s) {
-        return {
-          id: s.id,
-          enabled: !!s.enabled,
-          eyebrow: s.eyebrow.trim(),
-          heading: s.heading.trim(),
-          text: s.text.trim(),
-          image: s.image.trim(),
-          primaryLabel: s.primaryLabel.trim(),
-          secondaryLabel: s.secondaryLabel.trim(),
-          secondaryHref: s.secondaryHref.trim(),
-        };
-      });
-      if (
-        A.commit(function (n) {
-          n.hero = clean;
-        }, "Homepage hero updated")
-      )
-        A.notify("Hero saved.");
-    };
-
-    root.appendChild(preview);
-    root.appendChild(msgBox);
-    root.appendChild(list);
-    root.appendChild(
-      h("p", { style: "display:flex;gap:.5rem;flex-wrap:wrap" }, [add, save]),
+    var imageCard = h(
+      "section",
+      {
+        class: "slide-card hero-editor-card",
+      },
+      [
+        h("h2", { text: "Hero image" }),
+        preview,
+        imageStatus,
+        h(
+          "div",
+          {
+            class: "acts hero-editor-actions",
+          },
+          [uploadButton, replaceButton, defaultButton],
+        ),
+        fileInput,
+      ],
     );
-    renderList();
-    paint();
+
+    var contentCard = h(
+      "section",
+      {
+        class: "slide-card hero-editor-card",
+      },
+      [
+        h("h2", { text: "Hero content" }),
+        eyebrow.wrap,
+        heading.wrap,
+        description.wrap,
+        primaryLabel.wrap,
+        secondaryLabel.wrap,
+        secondaryHref.wrap,
+        enabledLabel,
+      ],
+    );
+
+    root.appendChild(imageCard);
+    root.appendChild(contentCard);
+    root.appendChild(h("div", { class: "hero-editor-save" }, [saveButton]));
+
+    paintPreview();
   });
 })();

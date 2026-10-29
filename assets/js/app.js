@@ -87,19 +87,24 @@
       if (n.href === page) a.setAttribute("aria-current", "page");
       nav.appendChild(a);
     });
+
     var btn = h("button", {
       class: "nav-toggle",
       type: "button",
       "aria-expanded": "false",
       "aria-controls": "nav",
       "aria-label": "Open menu",
-      text: "Menu",
     });
+
+    btn.innerHTML = '<i class="fa-solid fa-bars" aria-hidden="true"></i>';
+
     btn.addEventListener("click", function () {
       var open = nav.classList.toggle("open");
       btn.setAttribute("aria-expanded", String(open));
       btn.setAttribute("aria-label", open ? "Close menu" : "Open menu");
-      btn.textContent = open ? "Close" : "Menu";
+      btn.innerHTML = open
+        ? '<i class="fa-solid fa-xmark" aria-hidden="true"></i>'
+        : '<i class="fa-solid fa-bars" aria-hidden="true"></i>';
     });
     var brand = h("a", { class: "brand", href: "index.html" }, [
       logo(s),
@@ -204,11 +209,18 @@
     box.style.display = "";
     slideIndex = Math.min(slideIndex, slides.length - 1);
     var sl = slides[slideIndex];
+
+    var heroImage = String(sl.image || "").trim();
+
+    if (heroImage && !/^https?:\/\//i.test(heroImage)) {
+      heroImage = heroImage.replace(/^(\.\.\/)+/, "").replace(/^\/+/, "");
+    }
+
+    var heroImage = sl.image || "assets/images/gate.png";
+
     box.style.setProperty(
       "--hero-img",
-      sl.image
-        ? 'url("' + encodeURI(sl.image).replace(/"/g, "") + '")'
-        : "none",
+      'url("' + heroImage.replace(/"/g, "") + '")',
     );
 
     var input = h("input", {
@@ -539,4 +551,14 @@
   };
   renderAll();
   OGA.onChange(renderAll); // reflect admin edits made in another tab
+
+  /*
+   * A storage event is fired in other tabs on the same origin,
+   * not in the tab that originally made the change.
+   */
+  window.addEventListener("storage", function (event) {
+    if (event.key === OGA.KEY || event.key === null) {
+      window.location.reload();
+    }
+  });
 })();

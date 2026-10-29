@@ -42,7 +42,7 @@
       siteName: "Past Questions Bank",
       orgLine: "Students' Union Government",
       shortName: "OGITECH",
-      logo: "assets/images/logo.png",
+      logo: "/assets/images/logo.png",
       tagline:
         "Find past examination questions by department, programme, level, semester and course.",
       metaDescription:
@@ -69,7 +69,7 @@
         eyebrow: "Your study resource",
         heading: "Prepare Better. Study Smarter.",
         text: "Find past examination questions by department, programme, level, semester and course.",
-        image: "assets/images/gate.jpg",
+        image: "assets/images/gate.png",
         primaryLabel: "Search",
         secondaryLabel: "Browse Questions",
         secondaryHref: "browse.html",

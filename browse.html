@@ -1,84 +1,163 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <title>Browse Questions</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Past examination questions for OGITECH students."
+      content="Find past examination questions by course, department, programme, level, semester and year."
     />
+    <title>Browse Questions</title>
     <link rel="icon" href="assets/images/logo.png" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
     />
+
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+    />
+
     <link rel="stylesheet" href="assets/css/style.css" />
     <link rel="stylesheet" href="assets/css/pages.css" />
   </head>
+
   <body data-page="browse" data-title="Browse Questions">
     <a class="skip" href="#main">Skip to content</a>
+
     <header class="site-header" id="header"></header>
+
     <main id="main" class="wrap">
       <div id="storage-note"></div>
-      <div class="page-head">
-        <h1>Browse Questions</h1>
+
+      <section class="page-head">
+        <h1>Browse Past Questions</h1>
         <p class="muted">
-          Search by course code or title, then narrow by department, programme,
-          level, semester or year.
+          Search by course code or title, then narrow your results using the
+          academic filters.
         </p>
-      </div>
-      <details class="filters" id="filters">
-        <summary>Search and filters</summary>
+      </section>
+
+      <section
+        class="filters"
+        id="filters-panel"
+        aria-labelledby="filters-title"
+      >
+        <h2 id="filters-title">Find a question</h2>
+
         <form id="filter-form" novalidate>
           <div class="field full">
-            <label for="f-q">Course code or title</label
-            ><input
+            <label for="f-q">Course code or title</label>
+            <input
               id="f-q"
+              name="q"
               type="search"
               maxlength="80"
               autocomplete="off"
-              placeholder="For example CSC 101 or programming"
+              placeholder="e.g. CSC 101 or Introduction to Programming"
             />
           </div>
+
           <div class="field">
-            <label for="f-dept">Department</label
-            ><select id="f-dept"></select>
+            <label for="f-dept">Department</label>
+            <select id="f-dept" name="dept">
+              <option value="">All departments</option>
+            </select>
           </div>
+
           <div class="field">
-            <label for="f-prog">Programme</label
-            ><select id="f-prog"></select>
+            <label for="f-prog">Programme</label>
+            <select id="f-prog" name="prog">
+              <option value="">All programmes</option>
+            </select>
           </div>
+
           <div class="field">
-            <label for="f-level">Level</label
-            ><select id="f-level"></select>
+            <label for="f-level">Level</label>
+            <select id="f-level" name="level">
+              <option value="">All levels</option>
+            </select>
           </div>
+
           <div class="field">
-            <label for="f-sem">Semester</label
-            ><select id="f-sem"></select>
+            <label for="f-sem">Semester</label>
+            <select id="f-sem" name="sem">
+              <option value="">All semesters</option>
+            </select>
           </div>
+
           <div class="field">
-            <label for="f-year">Examination year</label
-            ><select id="f-year"></select>
+            <label for="f-year">Examination year</label>
+            <select id="f-year" name="year">
+              <option value="">All years</option>
+            </select>
           </div>
-          <div class="field" style="align-self: end">
+
+          <div class="filter-actions">
+            <button type="submit" class="btn" id="search-questions">
+              Search Questions
+            </button>
+
             <button type="button" class="btn alt" id="clear">
-              Clear filters
+              Clear Filters
             </button>
           </div>
         </form>
-      </details>
-      <p class="muted" id="count" role="status" aria-live="polite"></p>
-      <div id="results"></div>
-      <div class="more">
-        <button type="button" class="btn alt" id="more" hidden>
-          Load more
-        </button>
-      </div>
+      </section>
+
+      <section class="results-section" aria-labelledby="results-title">
+        <div class="results-heading">
+          <div>
+            <h2 id="results-title">Search Results</h2>
+            <p id="count" class="muted" role="status" aria-live="polite">
+              Loading questions...
+            </p>
+          </div>
+        </div>
+
+        <div id="results" aria-live="polite"></div>
+
+        <nav
+          class="pagination"
+          id="pagination"
+          aria-label="Question result pages"
+          hidden
+        >
+          <button
+            type="button"
+            class="btn alt pagination-button"
+            id="prev-page"
+            disabled
+          >
+            <span aria-hidden="true">&larr;</span>
+            Previous
+          </button>
+
+          <span class="pagination-status" id="page-status" aria-live="polite">
+            Page 1 of 1
+          </span>
+
+          <button
+            type="button"
+            class="btn pagination-button"
+            id="next-page"
+            disabled
+          >
+            Next
+            <span aria-hidden="true">&rarr;</span>
+          </button>
+        </nav>
+      </section>
     </main>
+
     <footer class="site-footer" id="footer"></footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <script src="assets/js/store.js"></script>
     <script src="assets/js/validation.js"></script>
     <script src="assets/js/app.js"></script>

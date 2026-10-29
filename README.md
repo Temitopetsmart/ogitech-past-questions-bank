@@ -6,7 +6,7 @@ Plain HTML, CSS and JavaScript. No framework, no build step, no backend.
 ## Run it
 
 1. Keep the folder structure exactly as delivered.
-2. Put your SUG logo at `assets/images/logo.png` (header and favicon). Optional hero photo: `assets/images/gate.jpg`.
+2. Put your SUG logo at `assets/images/logo.png` (header and favicon). Optional hero photo: `assets/images/gate.png`.
 3. Open `index.html` in a browser, or use VS Code "Live Server". The admin is at `admin/index.html`.
    Open the public site and the admin from the same address, because browser storage is per address.
 
