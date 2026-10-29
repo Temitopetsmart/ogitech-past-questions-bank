@@ -52,6 +52,7 @@
       copyright: "© 2026 OGITECH SUG Past Questions Bank. Prototype.",
       contact: { email: "", phone: "", address: "Igbesa, Ogun State, Nigeria" },
       social: [],
+      links: { school: "", sug: "" },
       nav: [
         { label: "Home", href: "index.html" },
         { label: "Browse Questions", href: "browse.html" },
@@ -315,6 +316,13 @@
         heading: "Recently Added Questions",
         description: "Latest past questions on the platform",
         limit: 4,
+      },
+      {
+        id: "featured",
+        enabled: true,
+        heading: "Featured Questions",
+        description: "Picked by the SUG",
+        limit: 3,
       },
       {
         id: "popular",

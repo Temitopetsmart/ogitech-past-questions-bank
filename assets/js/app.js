@@ -36,6 +36,25 @@
     if (/^#[0-9a-f]{6}$/i.test(t.green)) r.setProperty("--green", t.green);
     if (/^#[0-9a-f]{6}$/i.test(t.accent)) r.setProperty("--red", t.accent);
     if (/^#[0-9a-f]{6}$/i.test(t.gold)) r.setProperty("--gold", t.gold);
+    var FONTS = {
+      Poppins: "Poppins",
+      Montserrat: "Montserrat",
+      "Source Sans 3": "Source+Sans+3",
+    };
+    if (FONTS[t.font]) {
+      var l = document.getElementById("theme-font");
+      if (!l) {
+        l = document.createElement("link");
+        l.id = "theme-font";
+        l.rel = "stylesheet";
+        document.head.appendChild(l);
+      }
+      l.href =
+        "https://fonts.googleapis.com/css2?family=" +
+        FONTS[t.font] +
+        ":wght@400;500;600;700&display=swap";
+      r.setProperty("--font", "'" + t.font + "',system-ui,sans-serif");
+    } else r.removeProperty("--font");
     document.title =
       (document.body.dataset.title ? document.body.dataset.title + " | " : "") +
       s.siteName;
@@ -99,12 +118,35 @@
     clear(f);
     var links = h("ul"),
       social = h("ul"),
-      c = s.contact || {};
+      c = s.contact || {},
+      L = s.links || {};
     s.nav.forEach(function (n) {
       links.appendChild(
         h("li", {}, [h("a", { href: safeHref(n.href), text: n.label })]),
       );
     });
+    if (L.school)
+      links.appendChild(
+        h("li", {}, [
+          h("a", {
+            href: safeHref(L.school),
+            rel: "noopener",
+            target: "_blank",
+            text: "School website",
+          }),
+        ]),
+      );
+    if (L.sug)
+      links.appendChild(
+        h("li", {}, [
+          h("a", {
+            href: safeHref(L.sug),
+            rel: "noopener",
+            target: "_blank",
+            text: "SUG website",
+          }),
+        ]),
+      );
     (s.social || []).forEach(function (x) {
       social.appendChild(
         h("li", {}, [
@@ -352,20 +394,56 @@
       ["rector", "sug"].forEach(function (k) {
         var p = L[k];
         if (!p || !p.visible) return;
-        var card = h("div", { class: "card" }, [
-          h("h3", { text: p.heading }),
-          h("p", { text: p.message }),
-          p.name || p.title
-            ? h("p", {
-                class: "muted",
-                text: [p.name, p.title].filter(Boolean).join(", "),
+        var photo =
+          p.photo && safeHref(p.photo) !== "#"
+            ? h("img", {
+                src: p.photo,
+                alt: p.name ? "Portrait of " + p.name : "",
+                loading: "lazy",
+                width: "96",
+                height: "96",
+                style:
+                  "width:96px;height:96px;object-fit:cover;border-radius:50%;margin-bottom:.6rem",
               })
-            : null,
-        ]);
-        wrap.appendChild(card);
+            : null;
+        if (photo)
+          photo.onerror = function () {
+            photo.remove();
+          };
+        wrap.appendChild(
+          h("div", { class: "card" }, [
+            photo,
+            h("h3", { text: p.heading }),
+            h("p", { text: p.message }),
+            p.name || p.title
+              ? h("p", {
+                  class: "muted",
+                  text: [p.name, p.title].filter(Boolean).join(", "),
+                })
+              : null,
+          ]),
+        );
       });
       return wrap.children.length ? wrap : null;
     },
+    featured: function (sec) {
+      var list = OGA.getQuestions()
+        .filter(function (x) {
+          return x.featured;
+        })
+        .sort(function (a, b) {
+          return b.updatedAt.localeCompare(a.updatedAt);
+        })
+        .slice(0, sec.limit);
+      var box = h("div", { class: "qlist" });
+      list.forEach(function (x) {
+        box.appendChild(qRow(x));
+      });
+      return list.length
+        ? box
+        : h("p", { class: "empty", text: "No featured questions yet." });
+    },
+
     announcements: function (sec) {
       var list = OGA.get()
         .announcements.filter(function (a) {
@@ -379,8 +457,23 @@
         return h("p", { class: "empty", text: "No announcements right now." });
       var box = h("div", { class: "grid" });
       list.forEach(function (a) {
+        var im =
+          a.image && safeHref(a.image) !== "#"
+            ? h("img", {
+                src: a.image,
+                alt: "",
+                loading: "lazy",
+                style:
+                  "width:100%;max-height:140px;object-fit:cover;border-radius:4px;margin-bottom:.5rem",
+              })
+            : null;
+        if (im)
+          im.onerror = function () {
+            im.remove();
+          };
         box.appendChild(
           h("div", { class: "card" }, [
+            im,
             h("h3", { text: a.title }),
             h("p", { class: "muted", text: a.date }),
             h("p", { text: a.summary }),

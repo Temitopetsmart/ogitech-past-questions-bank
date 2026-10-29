@@ -1,0 +1,230 @@
+.gate {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: var(--bg-soft);
+}
+.gate[hidden],
+#app[hidden] {
+  display: none;
+}
+.gate-box {
+  max-width: 460px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 1.5rem;
+}
+.badge-demo {
+  display: inline-block;
+  background: #fff7e0;
+  border: 1px solid var(--gold);
+  color: #6b5510;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.1rem 0.5rem;
+  border-radius: 3px;
+  margin: 0;
+}
+.admin-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  background: var(--green-dark);
+  color: #fff;
+  padding: 0.7rem 1rem;
+}
+.admin-top .admin-link {
+  color: #fff;
+  margin-left: auto;
+}
+.anav {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.anav a {
+  white-space: nowrap;
+  padding: 0.55rem 0.8rem;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--r);
+  text-decoration: none;
+  color: var(--text);
+  font-weight: 500;
+}
+.anav a[aria-current="page"] {
+  background: var(--green);
+  color: #fff;
+}
+.aview {
+  padding-top: 1rem;
+  padding-bottom: 3rem;
+  outline: 0;
+}
+.aview h1 {
+  font-size: 1.5rem;
+}
+.toast {
+  position: fixed;
+  left: 1rem;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 50;
+  pointer-events: none;
+}
+.toast p {
+  margin: 0;
+  max-width: 520px;
+  padding: 0.8rem 1rem;
+  border-radius: var(--r);
+  background: var(--text);
+  color: #fff;
+  pointer-events: auto;
+}
+.toast p.error {
+  background: #a30d25;
+}
+.toast p.ok {
+  background: var(--green-dark);
+}
+.stats {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, 1fr);
+  margin: 1rem 0;
+}
+@media (min-width: 800px) {
+  .stats {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+.stat {
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 0.9rem;
+  background: #fff;
+}
+.stat b {
+  display: block;
+  font-size: 1.6rem;
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: end;
+  margin: 1rem 0;
+}
+.toolbar .field {
+  flex: 1 1 160px;
+}
+.arow {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid var(--line);
+}
+@media (min-width: 800px) {
+  .arow {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+}
+.arow .acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.pill {
+  display: inline-block;
+  font-size: 0.75rem;
+  border: 1px solid var(--line);
+  padding: 0.05rem 0.45rem;
+  border-radius: 3px;
+  margin-right: 0.3rem;
+  background: var(--bg-soft);
+}
+.pill.on {
+  border-color: var(--green);
+  color: var(--green);
+  background: var(--green-soft);
+}
+.btn.danger {
+  background: #fff;
+  border-color: var(--red);
+  color: #a30d25;
+}
+.slide-card {
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 1rem;
+  margin: 1rem 0;
+  background: #fff;
+  display: grid;
+  gap: 0.75rem;
+}
+.chk {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  min-height: 44px;
+}
+.chk input {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+.prev-hero {
+  background: var(--green-dark) center/cover;
+  color: #fff;
+  padding: 1.2rem;
+  border-radius: var(--r);
+}
+.prev-hero h3 {
+  font-size: 1.3rem;
+}
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  z-index: 100;
+}
+.dlg {
+  background: #fff;
+  max-width: 460px;
+  width: 100%;
+  border-radius: var(--r);
+  padding: 1.2rem;
+}
+.dlg .acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+.formgrid {
+  display: grid;
+  gap: 1rem;
+  max-width: 680px;
+}
+@media (min-width: 700px) {
+  .formgrid .half {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+}
