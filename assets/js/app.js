@@ -210,17 +210,17 @@
     slideIndex = Math.min(slideIndex, slides.length - 1);
     var sl = slides[slideIndex];
 
-    var heroImage = String(sl.image || "").trim();
+    var heroImage = String(sl.image || "").trim() || "assets/images/gate.png";
 
-    if (heroImage && !/^https?:\/\//i.test(heroImage)) {
-      heroImage = heroImage.replace(/^(\.\.\/)+/, "").replace(/^\/+/, "");
+    // CSS background URLs must be absolute here because the CSS rule
+    // that uses --hero-img lives inside assets/css/style.css.
+    if (!/^(https?:\/\/|data:image\/|blob:)/i.test(heroImage)) {
+      heroImage = new URL(heroImage, document.baseURI).href;
     }
-
-    var heroImage = sl.image || "assets/images/gate.png";
 
     box.style.setProperty(
       "--hero-img",
-      'url("' + heroImage.replace(/"/g, "") + '")',
+      'url("' + heroImage.replace(/"/g, "%22") + '")',
     );
 
     var input = h("input", {
