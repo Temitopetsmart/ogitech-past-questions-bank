@@ -222,7 +222,7 @@
       question.level,
       question.semester,
       question.examYear,
-      OGA.session(question.examYear),
+      OGA.sessionName(question),
       question.notes,
     ].join(" ");
 

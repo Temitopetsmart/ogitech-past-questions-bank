@@ -1,6 +1,12 @@
-/* Admin framework: demo gate, routing, helpers, dashboard.
-   PROTOTYPE ONLY: no real authentication. localStorage is not a security boundary. */
+/* Admin framework: prototype login, role guard, routing and shared helpers.
+   PROTOTYPE ONLY: the login is a stand-in. The backend enforces real authentication
+   and permissions on the server; hiding things here is not security. */
 (function () {
+  var SESSION_KEY = "pqb_admin_uid",
+    GREEN = "#0b5d34",
+    GREY = "#5a655f",
+    RED = "#c8102e";
+
   function h(tag, attrs, kids) {
     var el = document.createElement(tag);
     Object.keys(attrs || {}).forEach(function (k) {
@@ -16,442 +22,282 @@
   function clear(el) {
     while (el.firstChild) el.removeChild(el.firstChild);
   }
-  function safeHref(u) {
-    u = String(u || "").trim();
-    return !/^\/\//.test(u) &&
-      /^(https?:\/\/|mailto:|#|[\w./-]+(\?[^\s]*)?(#\S*)?$)/i.test(u)
-      ? u
-      : "#";
-  }
   function $(id) {
     return document.getElementById(id);
   }
 
   var views = {},
-    order = [],
-    toastTimer = null;
-  var A = { h: h, clear: clear, safeHref: safeHref, $: $, editing: false };
-
-  A.register = function (id, label, render) {
-    if (!views[id]) order.push({ id: id, label: label });
-    views[id] = render;
-    buildNav();
+    order = [];
+  var A = {
+    h: h,
+    clear: clear,
+    $: $,
+    pending: null,
+    GREEN: GREEN,
+    GREY: GREY,
+    RED: RED,
   };
 
-  function buildNav() {
-    var nav = $("anav");
-    if (!nav) return;
-
-    clear(nav);
-
-    var current = A.current();
-
-    var iconMap = {
-      dashboard: "fa-gauge-high",
-      questions: "fa-file-lines",
-      departments: "fa-building",
-      requests: "fa-inbox",
-      "question-requests": "fa-inbox",
-      hero: "fa-panorama",
-      settings: "fa-sliders",
-      leadership: "fa-users",
-      announcements: "fa-bullhorn",
-      layout: "fa-table-columns",
-      data: "fa-database",
-    };
-
-    var groupMap = {
-      dashboard: "Overview",
-      questions: "Academic content",
-      departments: "Academic content",
-      requests: "Academic content",
-      "question-requests": "Academic content",
-      hero: "Website management",
-      settings: "Website management",
-      leadership: "Website management",
-      announcements: "Website management",
-      layout: "Website management",
-      data: "System",
-    };
-
-    var groupOrder = [
-      "Overview",
-      "Academic content",
-      "Website management",
-      "System",
-      "Other",
-    ];
-
-    var groups = {};
-
-    order.forEach(function (view) {
-      var groupName = groupMap[view.id] || "Other";
-
-      if (!groups[groupName]) groups[groupName] = [];
-
-      groups[groupName].push(view);
-    });
-
-    groupOrder.forEach(function (groupName) {
-      var items = groups[groupName];
-
-      if (!items || !items.length) return;
-
-      var group = h("section", {
-        class: "admin-nav-group",
-        "aria-label": groupName,
-      });
-
-      group.appendChild(
-        h("p", {
-          class: "admin-nav-heading",
-          text: groupName,
-        }),
+  /* ---------- Prototype authentication ---------- */
+  A.user = function () {
+    var id = null;
+    try {
+      id = sessionStorage.getItem(SESSION_KEY);
+    } catch (e) {}
+    if (!id) return null;
+    return (
+      OGA.get().adminUsers.filter(function (u) {
+        return u.id === id && u.active;
+      })[0] || null
+    );
+  };
+  A.login = function (username, password) {
+    var name = String(username || "")
+      .trim()
+      .toLowerCase();
+    var u = OGA.get().adminUsers.filter(function (x) {
+      return (
+        x.active && x.username.toLowerCase() === name && x.password === password
       );
+    })[0];
+    if (!u) return null;
+    try {
+      sessionStorage.setItem(SESSION_KEY, u.id);
+    } catch (e) {
+      return null;
+    }
+    return u;
+  };
+  A.logout = function () {
+    try {
+      sessionStorage.removeItem(SESSION_KEY);
+    } catch (e) {}
+    history.replaceState(null, "", location.pathname + location.search);
+    A.destroyCharts && A.destroyCharts();
+    showLogin();
+  };
+  A.roleLabel = function (r) {
+    return r === "main" ? "Main Admin" : "Question Manager";
+  };
+  A.can = function (id) {
+    var u = A.user(),
+      v = views[id];
+    return !!(u && v && v.roles.indexOf(u.role) !== -1);
+  };
 
-      items.forEach(function (view) {
-        var link = h("a", {
-          href: "#" + view.id,
-          "aria-label": view.label,
-        });
-
-        var icon = h("i", {
-          class: "fa-solid " + (iconMap[view.id] || "fa-circle-dot"),
-          "aria-hidden": "true",
-        });
-
-        var label = h("span", { text: view.label });
-
-        link.appendChild(icon);
-        link.appendChild(label);
-
-        if (view.id === current) {
-          link.setAttribute("aria-current", "page");
-        }
-
-        group.appendChild(link);
-      });
-
-      nav.appendChild(group);
-    });
-  }
+  /* ---------- Views and routing ---------- */
+  A.register = function (id, label, render, o) {
+    o = o || {};
+    if (!views[id]) order.push(id);
+    views[id] = {
+      label: label,
+      render: render,
+      icon: o.icon || "fa-circle",
+      roles: o.roles || ["main", "manager"],
+      group: o.group || "work",
+      badge: o.badge || null,
+    };
+  };
   A.current = function () {
     var id = location.hash.slice(1);
     return views[id] ? id : "dashboard";
   };
+  A.go = function (id, pending) {
+    A.pending = pending || null;
+    if (location.hash === "#" + id) A.route();
+    else location.hash = id;
+  };
+
+  function buildNav() {
+    var nav = $("anav"),
+      cur = A.current(),
+      adminHead = false;
+    clear(nav);
+    order.forEach(function (id) {
+      if (!A.can(id)) return;
+      var v = views[id];
+      if (v.group === "admin" && !adminHead) {
+        nav.appendChild(
+          h("p", { class: "nav-heading", text: "Administration" }),
+        );
+        adminHead = true;
+      }
+      var a = h("a", { href: "#" + id }, [
+        h("i", { class: "fa-solid " + v.icon, "aria-hidden": "true" }),
+        h("span", { text: v.label }),
+      ]);
+      var n = v.badge ? v.badge() : 0;
+      if (n > 0)
+        a.appendChild(
+          h("span", {
+            class: "nav-badge",
+            text: String(n),
+            "aria-label": n + " new",
+          }),
+        );
+      if (id === cur) a.setAttribute("aria-current", "page");
+      nav.appendChild(a);
+    });
+  }
+
+  A.refreshNav = buildNav;
 
   A.route = function () {
-    var id = A.current();
+    var user = A.user();
+    if (!user) return showLogin();
+    var id = A.current(),
+      asked = location.hash.slice(1);
+    if (views[asked] && !A.can(asked)) {
+      A.notify("Your account does not have access to that section.", "error");
+      history.replaceState(
+        null,
+        "",
+        location.pathname + location.search + "#dashboard",
+      );
+      id = "dashboard";
+    }
+    closeDrawer();
     var view = $("view");
-
-    A.editing = false;
+    A.destroyCharts && A.destroyCharts();
     clear(view);
     buildNav();
-
-    if (typeof views[id] === "function") {
-      views[id](view);
+    try {
+      views[id].render(view);
+    } catch (err) {
+      if (window.console) console.error(err);
+      clear(view);
+      view.appendChild(
+        A.empty(
+          "fa-triangle-exclamation",
+          "Something went wrong",
+          "This section could not be shown. Reload the page and try again.",
+        ),
+      );
     }
-
-    var heading = view.querySelector("h1");
-    var title = heading ? heading.textContent : "Dashboard";
-    var pageTitle = $("admin-page-title");
-
-    if (pageTitle) pageTitle.textContent = title;
-
-    document.title = title + " | OGITECH Administration";
-
+    $("page-title").textContent = views[id].label;
+    document.title = views[id].label + " | OGITECH Past Questions Bank Admin";
     view.focus();
     window.scrollTo(0, 0);
   };
 
+  /* ---------- Notifications (SweetAlert2) ---------- */
   A.notify = function (msg, type) {
-    if (window.Swal && typeof window.Swal.mixin === "function") {
-      var toast = window.Swal.mixin({
+    if (window.Swal && Swal.fire) {
+      Swal.fire({
         toast: true,
-        position: "top-end",
+        position: "top",
         showConfirmButton: false,
-        timer: type === "error" ? 6500 : 3200,
+        timer: type === "error" ? 5500 : 3000,
         timerProgressBar: true,
-      });
-
-      toast.fire({
         icon: type === "error" ? "error" : "success",
         title: String(msg || ""),
       });
-
       return;
     }
-
     var t = $("toast");
-    if (!t) return;
-
     clear(t);
     t.appendChild(
       h("p", {
-        class: type || "ok",
-        role: type === "error" ? "alert" : "status",
-        text: msg,
+        class: type === "error" ? "error" : "ok",
+        text: String(msg || ""),
       }),
     );
   };
+  A.error = function (title, text) {
+    if (window.Swal && Swal.fire)
+      return Swal.fire({
+        icon: "error",
+        title: title,
+        text: text,
+        confirmButtonColor: GREEN,
+      });
+    window.alert(title + "\n" + text);
+  };
+  A.confirm = function (title, text, label, onYes, warn) {
+    if (!(window.Swal && Swal.fire)) {
+      if (window.confirm(title + "\n" + text)) onYes();
+      return;
+    }
+    Swal.fire({
+      icon: "warning",
+      title: title,
+      text: text,
+      showCancelButton: true,
+      confirmButtonText: label || "Confirm",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: warn === false ? GREEN : RED,
+      cancelButtonColor: GREY,
+      reverseButtons: true,
+      focusCancel: true,
+    }).then(function (r) {
+      if (r.isConfirmed) onYes();
+    });
+  };
+  /* Modal showing a DOM node (details, forms in a dialog). */
+  A.dialog = function (title, node, o) {
+    o = o || {};
+    return Swal.fire({
+      title: title,
+      html: node,
+      width: 560,
+      confirmButtonColor: GREEN,
+      cancelButtonColor: GREY,
+      confirmButtonText: o.confirm || "Close",
+      showCancelButton: !!o.cancel,
+      cancelButtonText: o.cancel || "Cancel",
+      reverseButtons: !!o.cancel,
+      preConfirm: o.preConfirm,
+      customClass: { popup: "pqb-dialog" },
+    });
+  };
+  A.prompt = function (title, value, validator, onOk) {
+    Swal.fire({
+      title: title,
+      input: "text",
+      inputValue: value || "",
+      inputAttributes: { maxlength: 30, autocapitalize: "off" },
+      showCancelButton: true,
+      confirmButtonText: "Save",
+      confirmButtonColor: GREEN,
+      cancelButtonColor: GREY,
+      reverseButtons: true,
+      inputValidator: function (v) {
+        return validator(String(v).trim()) || undefined;
+      },
+    }).then(function (r) {
+      if (r.isConfirmed) onOk(String(r.value).trim());
+    });
+  };
 
-  /* Clone state, let fn change it, validate+persist. fn may return an error string to abort. */
-  A.commit = function (fn, label) {
+  /* Clone state, let fn change it, validate and persist. fn may return an error string to abort. */
+  A.commit = function (fn) {
     var next = JSON.parse(JSON.stringify(OGA.get()));
     var err = fn(next);
     if (typeof err === "string") {
       A.notify(err, "error");
       return false;
     }
-    next.activity = [{ at: new Date().toISOString(), label: label }]
-      .concat(next.activity || [])
-      .slice(0, 10);
     var r = OGA.save(next);
     if (!r.ok) {
-      A.notify(r.error, "error");
+      A.error("Not saved", r.error);
       return false;
     }
-    A.editing = false;
     return true;
   };
 
-  A.fmt = function (iso) {
+  /* ---------- Small UI helpers ---------- */
+  A.fmtDate = function (iso) {
     var d = new Date(iso);
-    return isNaN(d) ? "" : d.toLocaleString();
+    return isNaN(d)
+      ? ""
+      : d.toLocaleDateString(undefined, {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        });
   };
-
-  /* Labelled form control with its own error line. */
-  A.field = function (o) {
-    var id = o.id,
-      err = h("p", { class: "err", id: id + "-err" }),
-      hint = o.hint
-        ? h("p", { class: "hint", id: id + "-hint", text: o.hint })
-        : null;
-    var input;
-    if (o.type === "select") {
-      input = h("select", { id: id });
-      (o.options || []).forEach(function (op) {
-        input.appendChild(h("option", { value: op[0], text: op[1] }));
-      });
-      input.value = o.value == null ? "" : o.value;
-    } else if (o.type === "textarea") {
-      input = h("textarea", { id: id });
-      input.value = o.value || "";
-    } else if (o.type === "checkbox") {
-      input = h("input", { id: id, type: "checkbox" });
-      input.checked = !!o.value;
-    } else {
-      input = h("input", { id: id, type: o.type || "text" });
-      input.value = o.value || "";
-      if (o.inputmode) input.setAttribute("inputmode", o.inputmode);
-    }
-    if (o.maxlength) input.setAttribute("maxlength", o.maxlength);
-    if (o.required) input.setAttribute("aria-required", "true");
-    input.setAttribute(
-      "aria-describedby",
-      (hint ? id + "-hint " : "") + id + "-err",
-    );
-    var wrap =
-      o.type === "checkbox"
-        ? h("div", { class: "field" }, [
-            h("label", { class: "chk", for: id }, [
-              input,
-              h("span", { text: o.label }),
-            ]),
-            err,
-          ])
-        : h("div", { class: "field" }, [
-            h("label", {
-              for: id,
-              text: o.label + (o.required ? "" : " (optional)"),
-            }),
-            input,
-            hint,
-            err,
-          ]);
-    return {
-      wrap: wrap,
-      input: input,
-      get: function () {
-        return o.type === "checkbox" ? input.checked : input.value.trim();
-      },
-      error: function (m) {
-        err.textContent = m || "";
-        if (m) input.setAttribute("aria-invalid", "true");
-        else input.removeAttribute("aria-invalid");
-        return m || "";
-      },
-    };
-  };
-  /* Apply {key: message} to fields {key: field}; focus the first failing one. Returns true if all valid. */
-  A.applyErrors = function (fields, errors) {
-    var first = null;
-    Object.keys(fields).forEach(function (k) {
-      var m = fields[k].error(errors[k]);
-      if (m && !first) first = k;
-    });
-    if (first) fields[first].input.focus();
-    return !first;
-  };
-
-  /* Accessible overlay dialog. actions: [{label, cls, onClick}] ; resolves via callbacks. */
-  A.modal = function (title, body, actions) {
-    var opener = document.activeElement,
-      ov = h("div", { class: "overlay" });
-    function close() {
-      if (ov.parentNode) ov.parentNode.removeChild(ov);
-      if (opener && opener.focus) opener.focus();
-    }
-    var acts = h("div", { class: "acts" });
-    actions.forEach(function (a) {
-      var b = h("button", {
-        type: "button",
-        class: "btn " + (a.cls || ""),
-        text: a.label,
-      });
-      b.addEventListener("click", function () {
-        if (a.onClick() !== false) close();
-      });
-      acts.appendChild(b);
-    });
-    var dlg = h(
-      "div",
-      {
-        class: "dlg",
-        role: "dialog",
-        "aria-modal": "true",
-        "aria-labelledby": "dlg-t",
-      },
-      [h("h2", { id: "dlg-t", text: title })].concat(body, [acts]),
-    );
-    ov.appendChild(dlg);
-    ov.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") close();
-    });
-    document.body.appendChild(ov);
-    (acts.querySelector("button") || dlg).focus();
-    return close;
-  };
-
-  A.confirm = function (title, text, label, onYes) {
-    if (window.Swal && typeof window.Swal.fire === "function") {
-      window.Swal.fire({
-        title: title,
-        text: text,
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonText: label || "Confirm",
-        cancelButtonText: "Cancel",
-        reverseButtons: true,
-        focusCancel: true,
-      }).then(function (result) {
-        if (result.isConfirmed && typeof onYes === "function") {
-          onYes();
-        }
-      });
-
-      return;
-    }
-
-    A.modal(
-      title,
-      [h("p", { text: text })],
-      [
-        {
-          label: "Cancel",
-          cls: "alt",
-          onClick: function () {},
-        },
-        {
-          label: label || "Confirm",
-          cls: "danger",
-          onClick: function () {
-            onYes();
-          },
-        },
-      ],
-    );
-  };
-
-  /* File chooser that validates and previews, but never persists the file (see note). */
-  A.filePicker = function (o) {
-    var pdf = o.kind === "pdf";
-    var rule = pdf
-      ? {
-          types: ["application/pdf"],
-          max: 10 * 1048576,
-          name: "PDF",
-          mb: 10,
-          dir: "assets/files/",
-        }
-      : {
-          types: ["image/jpeg", "image/png", "image/webp"],
-          max: 2 * 1048576,
-          name: "JPG, PNG or WebP image",
-          mb: 2,
-          dir: "assets/images/",
-        };
-    var input = h("input", {
-      type: "file",
-      id: o.id,
-      accept: rule.types.join(","),
-      "aria-describedby": o.id + "-msg",
-    });
-    var msg = h("p", {
-        class: "hint",
-        id: o.id + "-msg",
-        text: "Optional. Choosing a file only previews it; it is not saved.",
-      }),
-      prev = h("div"),
-      url = null;
-    input.addEventListener("change", function () {
-      if (url) {
-        URL.revokeObjectURL(url);
-        url = null;
-      }
-      clear(prev);
-      var f = input.files && input.files[0];
-      if (!f) return;
-      if (rule.types.indexOf(f.type) === -1) {
-        msg.textContent = "Unsupported file type. Choose a " + rule.name + ".";
-        input.value = "";
-        return;
-      }
-      if (f.size > rule.max) {
-        msg.textContent =
-          "That file is too large. The limit is " + rule.mb + " MB.";
-        input.value = "";
-        return;
-      }
-      if (pdf) prev.appendChild(h("p", { text: "Selected: " + f.name }));
-      else {
-        url = URL.createObjectURL(f);
-        prev.appendChild(
-          h("img", {
-            src: url,
-            alt: "Preview of the selected image",
-            style: "max-width:220px;margin-top:.5rem",
-          }),
-        );
-      }
-      msg.textContent =
-        "Session preview only; it will be gone after a refresh. To keep it, copy the file into " +
-        rule.dir +
-        " and type its path in the field above.";
-    });
-    return h("div", { class: "field" }, [
-      h("label", { for: o.id, text: o.label }),
-      input,
-      msg,
-      prev,
-    ]);
-  };
-
-  A.title = function (text, sub) {
-    return h("div", {}, [
-      h("h1", { text: text }),
-      sub ? h("p", { class: "muted", text: sub }) : null,
-    ]);
+  A.uid = function (p) {
+    return p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   };
   A.slug = function (s) {
     return (
@@ -463,198 +309,296 @@
         .slice(0, 30) || "item"
     );
   };
-
-  /* ---------- Dashboard ---------- */
-  A.register("dashboard", "Dashboard", function (root) {
-    var s = OGA.get(),
-      qs = s.questions;
-    var pubQ = qs.filter(function (x) {
-        return x.published;
-      }).length,
-      pubA = s.announcements.filter(function (x) {
-        return x.published;
-      }).length;
-    var slides = s.hero.filter(function (x) {
-      return x.enabled;
-    }).length;
-    function stat(n, label) {
-      return h("div", { class: "stat" }, [
-        h("b", { text: String(n) }),
-        h("span", { class: "muted", text: label }),
-      ]);
-    }
-    root.appendChild(
-      A.title(
-        "Dashboard",
-        "All figures are calculated from the local demonstration data in this browser.",
-      ),
-    );
-    var st = OGA.status();
-    if (st.message)
-      root.appendChild(
-        h("p", { class: "notice", role: "alert", text: st.message }),
+  A.deptName = function (id) {
+    var d = OGA.getDepartment(id);
+    return d ? d.name : "Unknown department";
+  };
+  A.spinner = function () {
+    return h("span", { class: "spin", "aria-hidden": "true" });
+  };
+  A.btn = function (label, icon, cls, onClick, aria) {
+    var b = h("button", { type: "button", class: "btn " + (cls || "") });
+    if (icon)
+      b.appendChild(
+        h("i", { class: "fa-solid " + icon, "aria-hidden": "true" }),
       );
-    root.appendChild(
-      h("div", { class: "stats" }, [
-        stat(qs.length, "Questions"),
-        stat(pubQ, "Published questions"),
-        stat(s.departments.length, "Departments"),
-        stat(s.announcements.length, "Announcements"),
-        stat(
-          pubQ + pubA + slides,
-          "Published items (questions, announcements, slides)",
-        ),
-        stat(
-          qs.filter(function (x) {
-            return x.featured;
-          }).length,
-          "Featured questions",
-        ),
-      ]),
-    );
-    root.appendChild(h("h2", { text: "Shortcuts" }));
-    var sc = h("p", {
-      class: "acts",
-      style: "display:flex;flex-wrap:wrap;gap:.5rem",
-    });
-    [
-      ["#questions", "Manage questions"],
-      ["#departments", "Manage departments"],
-      ["#hero", "Edit homepage hero"],
-      ["#settings", "Website settings"],
-    ].forEach(function (l) {
-      sc.appendChild(h("a", { class: "btn alt", href: l[0], text: l[1] }));
-    });
-    root.appendChild(sc);
-    root.appendChild(h("h2", { text: "Recently edited" }));
-    var act = s.activity || [],
-      ul = h("ul");
-    if (act.length)
-      act.slice(0, 6).forEach(function (a) {
-        ul.appendChild(h("li", { text: a.label + " (" + A.fmt(a.at) + ")" }));
-      });
-    else
-      qs.slice()
-        .sort(function (a, b) {
-          return b.updatedAt.localeCompare(a.updatedAt);
-        })
-        .slice(0, 5)
-        .forEach(function (x) {
-          ul.appendChild(
-            h("li", {
-              text:
-                x.courseCode +
-                " " +
-                x.courseTitle +
-                " (sample, " +
-                A.fmt(x.updatedAt) +
-                ")",
-            }),
-          );
+    if (label) b.appendChild(document.createTextNode(label));
+    else {
+      b.classList.add("icon-only");
+      b.setAttribute("aria-label", aria || "");
+      b.setAttribute("title", aria || "");
+    }
+    if (aria && label) b.setAttribute("aria-label", aria);
+    if (onClick) b.addEventListener("click", onClick);
+    return b;
+  };
+  A.busy = function (btn, on, text) {
+    if (on) {
+      btn._kids = Array.prototype.slice.call(btn.childNodes);
+      clear(btn);
+      btn.appendChild(A.spinner());
+      btn.appendChild(document.createTextNode(" " + (text || "Working…")));
+      btn.disabled = true;
+      btn.setAttribute("aria-busy", "true");
+    } else {
+      if (btn._kids) {
+        clear(btn);
+        btn._kids.forEach(function (k) {
+          btn.appendChild(k);
         });
-    root.appendChild(ul);
-  });
+      }
+      btn.disabled = false;
+      btn.removeAttribute("aria-busy");
+    }
+  };
+  A.pill = function (text, kind) {
+    return h("span", { class: "pill" + (kind ? " " + kind : ""), text: text });
+  };
+  A.empty = function (icon, title, text, action) {
+    return h("div", { class: "empty-state" }, [
+      h("span", { class: "empty-icon", "aria-hidden": "true" }, [
+        h("i", { class: "fa-solid " + icon }),
+      ]),
+      h("h2", { text: title }),
+      text ? h("p", { class: "muted", text: text }) : null,
+      action || null,
+    ]);
+  };
+  A.title = function (text, sub, actions) {
+    return h("div", { class: "page-head" }, [
+      h("div", {}, [
+        h("h1", { text: text }),
+        sub ? h("p", { class: "muted", text: sub }) : null,
+      ]),
+      actions && actions.length
+        ? h("div", { class: "page-actions" }, actions)
+        : null,
+    ]);
+  };
+  A.card = function (title, kids, cls) {
+    return h(
+      "section",
+      { class: "card " + (cls || "") },
+      [title ? h("h2", { text: title }) : null].concat(kids || []),
+    );
+  };
+  A.dl = function (rows) {
+    var dl = h("dl", { class: "dl" });
+    rows.forEach(function (r) {
+      dl.appendChild(h("dt", { text: r[0] }));
+      dl.appendChild(
+        h("dd", { text: r[1] == null || r[1] === "" ? "—" : String(r[1]) }),
+      );
+    });
+    return dl;
+  };
+  A.fileSize = function (n) {
+    return n >= 1048576
+      ? (n / 1048576).toFixed(1) + " MB"
+      : Math.max(1, Math.round(n / 1024)) + " KB";
+  };
+
+  /* Upload / conversion progress bar. The backend will drive set() from upload events and conversion status. */
+  A.progress = function () {
+    var bar = h("div", { class: "bar-fill" }),
+      label = h("span", { class: "muted", role: "status" }),
+      el = h("div", { class: "progress", hidden: "" }, [
+        h(
+          "div",
+          {
+            class: "bar",
+            role: "progressbar",
+            "aria-valuemin": "0",
+            "aria-valuemax": "100",
+          },
+          [bar],
+        ),
+        label,
+      ]);
+    return {
+      el: el,
+      set: function (pct, text) {
+        el.hidden = false;
+        bar.style.width = (pct == null ? 100 : pct) + "%";
+        bar.parentNode.classList.toggle("indeterminate", pct == null);
+        if (pct != null)
+          bar.parentNode.setAttribute("aria-valuenow", String(pct));
+        label.textContent = text || "";
+      },
+      hide: function () {
+        el.hidden = true;
+      },
+    };
+  };
+
+  /* Labelled form control with its own error line. */
+  A.field = function (o) {
+    var id = o.id,
+      err = h("p", { class: "err", id: id + "-err" }),
+      hint = o.hint
+        ? h("p", { class: "hint", id: id + "-hint", text: o.hint })
+        : null,
+      input;
+    if (o.type === "select") {
+      input = h("select", { id: id });
+      (o.options || []).forEach(function (op) {
+        input.appendChild(h("option", { value: op[0], text: op[1] }));
+      });
+      input.value = o.value == null ? "" : o.value;
+    } else if (o.type === "textarea") {
+      input = h("textarea", { id: id, rows: o.rows || 3 });
+      input.value = o.value || "";
+    } else if (o.type === "checkbox") {
+      input = h("input", { id: id, type: "checkbox" });
+      input.checked = !!o.value;
+    } else {
+      input = h("input", { id: id, type: o.type || "text" });
+      input.value = o.value || "";
+      if (o.inputmode) input.setAttribute("inputmode", o.inputmode);
+      if (o.autocomplete) input.setAttribute("autocomplete", o.autocomplete);
+    }
+    if (o.maxlength) input.setAttribute("maxlength", o.maxlength);
+    if (o.required) input.setAttribute("aria-required", "true");
+    input.setAttribute(
+      "aria-describedby",
+      (hint ? id + "-hint " : "") + id + "-err",
+    );
+    var wrap =
+      o.type === "checkbox"
+        ? h("div", { class: "field check" }, [
+            h("label", { class: "chk", for: id }, [
+              input,
+              h("span", { text: o.label }),
+            ]),
+            hint,
+            err,
+          ])
+        : h("div", { class: "field" }, [
+            h("label", {
+              for: id,
+              text: o.label + (o.required || o.noSuffix ? "" : " (optional)"),
+            }),
+            input,
+            hint,
+            err,
+          ]);
+    return {
+      wrap: wrap,
+      input: input,
+      get: function () {
+        return o.type === "checkbox"
+          ? input.checked
+          : o.type === "password"
+            ? input.value
+            : input.value.trim();
+      },
+      error: function (m) {
+        err.textContent = m || "";
+        if (m) input.setAttribute("aria-invalid", "true");
+        else input.removeAttribute("aria-invalid");
+        return m || "";
+      },
+    };
+  };
+  /* Apply {key: message} to fields {key: field}; focus the first failing one. True if all valid. */
+  A.applyErrors = function (fields, errors) {
+    var first = null;
+    Object.keys(fields).forEach(function (k) {
+      var m = fields[k].error(errors[k]);
+      if (m && !first) first = k;
+    });
+    if (first) fields[first].input.focus();
+    return !first;
+  };
+
+  /* ---------- Shell: login, drawer ---------- */
+  function showLogin() {
+    $("app").hidden = true;
+    $("login").hidden = false;
+    document.title = "Sign in | OGITECH Past Questions Bank Admin";
+    $("lg-user").focus();
+  }
+  function showApp() {
+    var u = A.user();
+    $("login").hidden = true;
+    $("app").hidden = false;
+    $("user-name").textContent = u.name;
+    $("user-role").textContent = A.roleLabel(u.role);
+    $("user-initial").textContent = (u.name || "A").charAt(0).toUpperCase();
+  }
+  function setDrawer(open) {
+    $("sidebar").classList.toggle("is-open", open);
+    $("backdrop").hidden = !open;
+    var b = $("menu-btn");
+    b.setAttribute("aria-expanded", String(open));
+    b.setAttribute("aria-label", open ? "Close navigation" : "Open navigation");
+    b.firstChild.className = "fa-solid " + (open ? "fa-xmark" : "fa-bars");
+    document.body.classList.toggle("drawer-open", open);
+  }
+  function closeDrawer() {
+    if ($("sidebar").classList.contains("is-open")) setDrawer(false);
+  }
 
   function start() {
-    var app = $("app");
-    if (!app) return;
-
-    app.hidden = false;
-
-    function closeSidebar() {
-      var sidebar = $("admin-sidebar");
-      var toggle = $("admin-menu-toggle");
-      var backdrop = $("admin-sidebar-backdrop");
-
-      if (sidebar) sidebar.classList.remove("is-open");
-      if (backdrop) backdrop.hidden = true;
-
-      if (toggle) {
-        toggle.setAttribute("aria-expanded", "false");
-        toggle.setAttribute("aria-label", "Open navigation");
-        toggle.innerHTML =
-          '<i class="fa-solid fa-bars" aria-hidden="true"></i>';
-      }
-    }
-
-    function openSidebar() {
-      var sidebar = $("admin-sidebar");
-      var toggle = $("admin-menu-toggle");
-      var backdrop = $("admin-sidebar-backdrop");
-
-      if (!sidebar || !toggle || !backdrop) return;
-
-      sidebar.classList.add("is-open");
-      backdrop.hidden = false;
-      toggle.setAttribute("aria-expanded", "true");
-      toggle.setAttribute("aria-label", "Close navigation");
-      toggle.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
-    }
-
-    var toggle = $("admin-menu-toggle");
-    var backdrop = $("admin-sidebar-backdrop");
-
-    if (toggle) {
-      toggle.addEventListener("click", function () {
-        var sidebar = $("admin-sidebar");
-
-        if (sidebar && sidebar.classList.contains("is-open")) {
-          closeSidebar();
-        } else {
-          openSidebar();
-        }
-      });
-    }
-
-    if (backdrop) {
-      backdrop.addEventListener("click", closeSidebar);
-    }
-
-    var nav = $("anav");
-
-    if (nav) {
-      nav.addEventListener("click", function (event) {
-        var link = event.target.closest("a[href^='#']");
-
-        if (link) closeSidebar();
-      });
-    }
-
-    document.addEventListener("keydown", function (event) {
-      if (event.key === "Escape") closeSidebar();
+    $("menu-btn").addEventListener("click", function () {
+      setDrawer(!$("sidebar").classList.contains("is-open"));
     });
-
-    if (!location.hash || !views[location.hash.slice(1)]) {
-      history.replaceState(
-        null,
-        "",
-        location.pathname + location.search + "#dashboard",
-      );
-    }
-
-    A.route();
-
-    window.addEventListener("hashchange", function () {
-      A.route();
-      closeSidebar();
+    $("backdrop").addEventListener("click", closeDrawer);
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") closeDrawer();
     });
-
-    /*
-     * Changes from another tab can refresh the view.
-     * If a form is being edited, don't silently discard that work.
-     */
-    OGA.onChange(function () {
-      if (A.editing) {
-        A.notify(
-          "Content changed in another tab. Save or reopen your current section to review the latest changes.",
-          "error",
-        );
+    $("logout").addEventListener("click", A.logout);
+    $("lg-toggle").addEventListener("click", function () {
+      var p = $("lg-pass"),
+        show = p.type === "password";
+      p.type = show ? "text" : "password";
+      this.setAttribute("aria-label", show ? "Hide password" : "Show password");
+      this.firstChild.className =
+        "fa-solid " + (show ? "fa-eye-slash" : "fa-eye");
+    });
+    $("login-form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var u = $("lg-user"),
+        p = $("lg-pass"),
+        err = $("lg-err"),
+        btn = $("lg-submit");
+      if (!u.value.trim() || !p.value) {
+        err.textContent = "Enter your username and password.";
+        (u.value.trim() ? p : u).focus();
         return;
       }
-
-      A.route();
+      err.textContent = "";
+      A.busy(btn, true, "Signing in…");
+      setTimeout(function () {
+        var user = A.login(u.value, p.value);
+        A.busy(btn, false);
+        if (!user) {
+          err.textContent =
+            "Incorrect username or password, or browser storage is blocked.";
+          p.value = "";
+          p.focus();
+          return;
+        }
+        u.value = "";
+        p.value = "";
+        history.replaceState(
+          null,
+          "",
+          location.pathname + location.search + "#dashboard",
+        );
+        showApp();
+        A.route();
+      }, 350);
     });
+    window.addEventListener("hashchange", A.route);
+    if (A.user()) {
+      showApp();
+      A.route();
+    } else showLogin();
+    var st = OGA.status();
+    if (st.message) A.notify(st.message, "error");
   }
+
   window.OGAAdmin = A;
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", start);

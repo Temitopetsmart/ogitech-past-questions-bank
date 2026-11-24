@@ -305,7 +305,7 @@
       h("span", { text: dep ? dep.name : "Unassigned" }),
       h("span", { text: x.level }),
       h("span", { text: x.semester + " semester" }),
-      h("span", { text: OGA.session(x.examYear) }),
+      h("span", { text: OGA.sessionName(x) }),
     ]);
     return h("div", { class: "qrow" }, [
       h("div", { class: "t", text: x.courseCode + " – " + x.courseTitle }),

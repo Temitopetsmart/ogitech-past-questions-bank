@@ -39,7 +39,8 @@
       ["Programme", x.programme],
       ["Level", x.level],
       ["Semester", x.semester],
-      ["Examination year", OGA.session(x.examYear) + " (" + x.examYear + ")"],
+      ["Academic session", OGA.sessionName(x) || "Not set"],
+      ["Examination year", String(x.examYear)],
       ["Document", hasFile ? "PDF available" : "Not attached (sample record)"],
     ];
     if (x.notes) rows.push(["Notes", x.notes]);

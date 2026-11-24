@@ -1,4 +1,4 @@
-/* Request form: validation only. Nothing is sent, saved or emailed in this prototype. */
+/* Request form: validates, then saves the request for the admin Requests inbox (prototype: browser storage). */
 (function () {
   var UI = OGAUI,
     h = UI.h,
@@ -127,7 +127,7 @@
     return msg;
   }
 
-  function submit(e) {
+  function   function submit(e) {
     e.preventDefault();
     if (locked) return;
     var first = null;
@@ -139,9 +139,30 @@
       $(first).focus();
       return;
     }
+    var box = $("done");
+    var year = $("year").value.trim();
+    var res = OGA.addRequest({
+      name: $("name").value.trim(),
+      email: $("email").value.trim(),
+      departmentId: $("dept").value,
+      programme: $("prog").value,
+      level: $("level").value,
+      semester: $("sem").value,
+      courseCode: $("code").value.trim(),
+      courseTitle: $("title").value.trim(),
+      examYear: year ? +year : null,
+      details: $("details").value.trim(),
+    });
+    if (!res.ok) {
+      UI.clear(box);
+      box.appendChild(h("h2", { text: "Your request was not sent" }));
+      box.appendChild(h("p", { text: res.error }));
+      box.hidden = false;
+      box.focus();
+      return;
+    }
     locked = true;
     $("submit").disabled = true;
-    var box = $("done");
     UI.clear(box);
     var again = h("button", {
       type: "button",
@@ -162,21 +183,15 @@
       box.hidden = true;
       $("name").focus();
     };
-    box.appendChild(h("h2", { text: "Your request passed all checks" }));
+    box.appendChild(h("h2", { text: "Request sent" }));
     box.appendChild(
       h("p", {
         text:
-          "Request for " +
+          "Your request for " +
           $("code").value.trim() +
           " – " +
           $("title").value.trim() +
-          " is valid.",
-      }),
-    );
-    box.appendChild(
-      h("p", {
-        class: "muted",
-        text: "Demonstration only: this prototype does not send, save or email your request, and no administrator has received it.",
+          " has been sent to the administrators.",
       }),
     );
     box.appendChild(again);

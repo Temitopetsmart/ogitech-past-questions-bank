@@ -1,8 +1,19 @@
-/* Central data service. Single versioned state object in localStorage.
-   Later, each function here is replaced by a PHP API call. */
+/* Central data service (frontend prototype). Everything that touches data goes through window.OGA.
+   Public site content (header, hero, leadership, about, ...) is HARDCODED in HARD below.
+   Only question-bank data is persisted (localStorage key "pqb_state").
+   Backend later: each function here becomes a PHP API call. */
 (function () {
-  var KEY = "oga_demo_state",
-    VER = 1;
+  var KEY = "pqb_state",
+    VER = 2;
+  var PERSIST = [
+    "schemaVersion",
+    "options",
+    "sessions",
+    "departments",
+    "questions",
+    "requests",
+    "adminUsers",
+  ];
 
   function q(
     id,
@@ -13,6 +24,7 @@
     code,
     title,
     year,
+    sess,
     feat,
     views,
     created,
@@ -26,7 +38,9 @@
       courseCode: code,
       courseTitle: title,
       examYear: year,
+      sessionId: sess,
       notes: "",
+      document: null,
       fileUrl: "",
       featured: feat,
       published: true,
@@ -36,13 +50,13 @@
     };
   }
 
-  var SAMPLE = {
-    schemaVersion: VER,
+  /* ---------- Hardcoded public content (not editable in admin) ---------- */
+  var HARD = {
     settings: {
       siteName: "Past Questions Bank",
       orgLine: "Students' Union Government",
       shortName: "OGITECH",
-      logo: "/assets/images/logo.png",
+      logo: "assets/images/logo.png",
       tagline:
         "Find past examination questions by department, programme, level, semester and course.",
       metaDescription:
@@ -75,186 +89,6 @@
         secondaryHref: "browse.html",
       },
     ],
-    departments: [
-      {
-        id: "cse",
-        name: "Computer Science & Engineering",
-        description: "",
-        programmes: ["ND", "HND"],
-        visible: true,
-        order: 1,
-      },
-      {
-        id: "mech",
-        name: "Mechanical Engineering",
-        description: "",
-        programmes: ["ND", "HND"],
-        visible: true,
-        order: 2,
-      },
-      {
-        id: "eee",
-        name: "Electrical & Electronics Engineering",
-        description: "",
-        programmes: ["ND", "HND"],
-        visible: true,
-        order: 3,
-      },
-      {
-        id: "bam",
-        name: "Business Administration",
-        description: "",
-        programmes: ["ND", "HND"],
-        visible: true,
-        order: 4,
-      },
-      {
-        id: "mcm",
-        name: "Mass Communication",
-        description: "",
-        programmes: ["ND", "HND"],
-        visible: true,
-        order: 5,
-      },
-    ],
-    options: {
-      programmes: ["ND", "HND"],
-      levels: { ND: ["ND I", "ND II"], HND: ["HND I", "HND II"] },
-      semesters: ["First", "Second"],
-      yearMin: 2000,
-    },
-    questions: [
-      q(
-        "q001",
-        "cse",
-        "ND",
-        "ND I",
-        "First",
-        "CSC 101",
-        "Introduction to Programming",
-        2025,
-        true,
-        412,
-        "2026-09-28T09:00:00.000Z",
-      ),
-      q(
-        "q002",
-        "mech",
-        "ND",
-        "ND II",
-        "Second",
-        "MTH 102",
-        "Mathematics for Engineers",
-        2025,
-        true,
-        358,
-        "2026-09-27T09:00:00.000Z",
-      ),
-      q(
-        "q003",
-        "eee",
-        "HND",
-        "HND I",
-        "First",
-        "EEN 101",
-        "Basic Electrical Engineering",
-        2024,
-        true,
-        290,
-        "2026-09-26T09:00:00.000Z",
-      ),
-      q(
-        "q004",
-        "bam",
-        "HND",
-        "HND II",
-        "Second",
-        "BUS 201",
-        "Business Law",
-        2024,
-        false,
-        244,
-        "2026-09-25T09:00:00.000Z",
-      ),
-      q(
-        "q005",
-        "cse",
-        "ND",
-        "ND II",
-        "Second",
-        "CSC 212",
-        "Database Fundamentals",
-        2025,
-        false,
-        301,
-        "2026-09-24T09:00:00.000Z",
-      ),
-      q(
-        "q006",
-        "cse",
-        "HND",
-        "HND I",
-        "First",
-        "SWD 301",
-        "Web Application Development",
-        2024,
-        false,
-        187,
-        "2026-09-20T09:00:00.000Z",
-      ),
-      q(
-        "q007",
-        "mcm",
-        "ND",
-        "ND I",
-        "First",
-        "MAC 101",
-        "Introduction to Mass Communication",
-        2025,
-        false,
-        156,
-        "2026-09-18T09:00:00.000Z",
-      ),
-      q(
-        "q008",
-        "mech",
-        "HND",
-        "HND I",
-        "Second",
-        "MEC 305",
-        "Thermodynamics",
-        2023,
-        false,
-        133,
-        "2026-09-15T09:00:00.000Z",
-      ),
-      q(
-        "q009",
-        "eee",
-        "ND",
-        "ND I",
-        "Second",
-        "EEE 112",
-        "Circuit Theory",
-        2023,
-        false,
-        98,
-        "2026-09-12T09:00:00.000Z",
-      ),
-      q(
-        "q010",
-        "bam",
-        "ND",
-        "ND II",
-        "First",
-        "BAM 210",
-        "Principles of Marketing",
-        2024,
-        false,
-        121,
-        "2026-09-10T09:00:00.000Z",
-      ),
-    ],
     announcements: [
       {
         id: "a1",
@@ -268,13 +102,14 @@
         featured: true,
       },
     ],
+    /* Replace name, message and photo below with the approved text and images. */
     leadership: {
       rector: {
         heading: "Message from the Rector",
         visible: true,
         name: "",
         title: "Rector",
-        photo: "",
+        photo: "assets/images/logo.png",
         message:
           "Placeholder. An approved message from the Rector will appear here once supplied.",
       },
@@ -283,7 +118,7 @@
         visible: true,
         name: "",
         title: "SUG President",
-        photo: "",
+        photo: "assets/images/logo.png",
         message:
           "Placeholder. An approved introduction to the SUG leadership and this academic resource initiative will appear here.",
       },
@@ -300,7 +135,7 @@
       feedback:
         "Cannot find a question? Send a request and tell us the course and year you need.",
       requestIntro:
-        "Tell us which past question you need. This prototype only checks your form; nothing is sent anywhere yet.",
+        "Tell us which past question you need. Your request goes to the administrators, who will review it.",
     },
     sections: [
       {
@@ -355,15 +190,272 @@
     ],
   };
 
+  /* ---------- Seed data for the question bank ---------- */
+  var SEED = {
+    schemaVersion: VER,
+    options: {
+      programmes: ["ND", "HND"],
+      levels: { ND: ["ND I", "ND II"], HND: ["HND I", "HND II"] },
+      semesters: ["First", "Second"],
+      yearMin: 2000,
+    },
+    sessions: [
+      { id: "2022-2023", name: "2022/2023" },
+      { id: "2023-2024", name: "2023/2024" },
+      { id: "2024-2025", name: "2024/2025" },
+      { id: "2025-2026", name: "2025/2026" },
+    ],
+    departments: [
+      {
+        id: "cse",
+        name: "Computer Science & Engineering",
+        description: "",
+        programmes: ["ND", "HND"],
+        visible: true,
+        order: 1,
+      },
+      {
+        id: "mech",
+        name: "Mechanical Engineering",
+        description: "",
+        programmes: ["ND", "HND"],
+        visible: true,
+        order: 2,
+      },
+      {
+        id: "eee",
+        name: "Electrical & Electronics Engineering",
+        description: "",
+        programmes: ["ND", "HND"],
+        visible: true,
+        order: 3,
+      },
+      {
+        id: "bam",
+        name: "Business Administration",
+        description: "",
+        programmes: ["ND", "HND"],
+        visible: true,
+        order: 4,
+      },
+      {
+        id: "mcm",
+        name: "Mass Communication",
+        description: "",
+        programmes: ["ND", "HND"],
+        visible: true,
+        order: 5,
+      },
+    ],
+    questions: [
+      q(
+        "q001",
+        "cse",
+        "ND",
+        "ND I",
+        "First",
+        "CSC 101",
+        "Introduction to Programming",
+        2025,
+        "2024-2025",
+        true,
+        412,
+        "2026-09-28T09:00:00.000Z",
+      ),
+      q(
+        "q002",
+        "mech",
+        "ND",
+        "ND II",
+        "Second",
+        "MTH 102",
+        "Mathematics for Engineers",
+        2025,
+        "2024-2025",
+        true,
+        358,
+        "2026-09-27T09:00:00.000Z",
+      ),
+      q(
+        "q003",
+        "eee",
+        "HND",
+        "HND I",
+        "First",
+        "EEN 101",
+        "Basic Electrical Engineering",
+        2024,
+        "2023-2024",
+        true,
+        290,
+        "2026-09-26T09:00:00.000Z",
+      ),
+      q(
+        "q004",
+        "bam",
+        "HND",
+        "HND II",
+        "Second",
+        "BUS 201",
+        "Business Law",
+        2024,
+        "2023-2024",
+        false,
+        244,
+        "2026-09-25T09:00:00.000Z",
+      ),
+      q(
+        "q005",
+        "cse",
+        "ND",
+        "ND II",
+        "Second",
+        "CSC 212",
+        "Database Fundamentals",
+        2025,
+        "2024-2025",
+        false,
+        301,
+        "2026-09-24T09:00:00.000Z",
+      ),
+      q(
+        "q006",
+        "cse",
+        "HND",
+        "HND I",
+        "First",
+        "SWD 301",
+        "Web Application Development",
+        2024,
+        "2023-2024",
+        false,
+        187,
+        "2026-09-20T09:00:00.000Z",
+      ),
+      q(
+        "q007",
+        "mcm",
+        "ND",
+        "ND I",
+        "First",
+        "MAC 101",
+        "Introduction to Mass Communication",
+        2025,
+        "2024-2025",
+        false,
+        156,
+        "2026-09-18T09:00:00.000Z",
+      ),
+      q(
+        "q008",
+        "mech",
+        "HND",
+        "HND I",
+        "Second",
+        "MEC 305",
+        "Thermodynamics",
+        2023,
+        "2022-2023",
+        false,
+        133,
+        "2026-09-15T09:00:00.000Z",
+      ),
+      q(
+        "q009",
+        "eee",
+        "ND",
+        "ND I",
+        "Second",
+        "EEE 112",
+        "Circuit Theory",
+        2023,
+        "2022-2023",
+        false,
+        98,
+        "2026-09-12T09:00:00.000Z",
+      ),
+      q(
+        "q010",
+        "bam",
+        "ND",
+        "ND II",
+        "First",
+        "BAM 210",
+        "Principles of Marketing",
+        2024,
+        "2023-2024",
+        false,
+        121,
+        "2026-09-10T09:00:00.000Z",
+      ),
+    ],
+    requests: [],
+    /* PROTOTYPE demo accounts (plain text on purpose). The backend uses password_hash and server sessions. */
+    adminUsers: [
+      {
+        id: "u1",
+        name: "Main Admin",
+        username: "mainadmin",
+        password: "Admin@2026",
+        role: "main",
+        active: true,
+        createdAt: "2026-09-01T09:00:00.000Z",
+      },
+      {
+        id: "u2",
+        name: "Question Manager",
+        username: "manager",
+        password: "Manager@2026",
+        role: "manager",
+        active: true,
+        createdAt: "2026-09-01T09:00:00.000Z",
+      },
+    ],
+  };
+
   var state = null,
     status = { ok: true, message: "" };
+
   function clone(o) {
     return JSON.parse(JSON.stringify(o));
   }
 
+  function valid(s) {
+    return !!(
+      s &&
+      typeof s === "object" &&
+      s.schemaVersion === VER &&
+      s.options &&
+      Array.isArray(s.options.programmes) &&
+      s.options.levels &&
+      Array.isArray(s.options.semesters) &&
+      ["sessions", "departments", "questions", "requests", "adminUsers"].every(
+        function (k) {
+          return Array.isArray(s[k]);
+        },
+      )
+    );
+  }
+
+  function pick(s) {
+    var o = {};
+    PERSIST.forEach(function (k) {
+      o[k] = s[k];
+    });
+    return o;
+  }
+
+  function merge(p) {
+    var o = clone(HARD);
+    PERSIST.forEach(function (k) {
+      o[k] = p[k];
+    });
+    return o;
+  }
+
   function persist(s) {
     try {
-      localStorage.setItem(KEY, JSON.stringify(s));
+      localStorage.setItem(KEY, JSON.stringify(pick(s)));
       return { ok: true };
     } catch (e) {
       return {
@@ -372,22 +464,6 @@
           "Browser storage is unavailable or full. Your change was not saved.",
       };
     }
-  }
-
-  function valid(s) {
-    return (
-      s &&
-      typeof s === "object" &&
-      s.schemaVersion === VER &&
-      s.settings &&
-      Array.isArray(s.questions) &&
-      Array.isArray(s.departments) &&
-      Array.isArray(s.hero) &&
-      Array.isArray(s.sections) &&
-      Array.isArray(s.announcements) &&
-      s.leadership &&
-      s.options
-    );
   }
 
   function load() {
@@ -400,11 +476,11 @@
         message:
           "Browser storage is blocked. Showing sample data; changes will not persist.",
       };
-      return clone(SAMPLE);
+      return clone(SEED);
     }
     if (raw === null) {
-      persist(clone(SAMPLE));
-      return clone(SAMPLE);
+      persist(clone(SEED));
+      return clone(SEED);
     }
     try {
       var parsed = JSON.parse(raw);
@@ -413,15 +489,15 @@
     status = {
       ok: false,
       message:
-        "Saved prototype data is damaged or from an unsupported version. Showing sample data. Reset or import a backup from the admin Demo data page.",
+        "Saved prototype data is damaged or from an unsupported version. Showing sample data.",
     };
-    return clone(SAMPLE);
+    return clone(SEED);
   }
 
   var OGA = {
     KEY: KEY,
     get: function () {
-      if (!state) state = load();
+      if (!state) state = merge(load());
       return state;
     },
     status: function () {
@@ -435,7 +511,7 @@
           error: "Data failed validation and was not saved.",
         };
       var r = persist(next);
-      if (r.ok) state = next;
+      if (r.ok) state = merge(pick(next));
       return r;
     },
     getSettings: function () {
@@ -469,35 +545,37 @@
         })[0] || null
       );
     },
-    session: function (y) {
-      return y - 1 + "/" + y;
+    getSessions: function () {
+      return OGA.get()
+        .sessions.slice()
+        .sort(function (a, b) {
+          return b.name.localeCompare(a.name);
+        });
     },
-    exportData: function () {
-      return JSON.stringify(OGA.get(), null, 2);
+    /* Academic session name of a question, e.g. "2025/2026". Separate from examYear. */
+    sessionName: function (question) {
+      var s = OGA.get().sessions.filter(function (x) {
+        return x.id === (question && question.sessionId);
+      })[0];
+      return s ? s.name : "";
     },
-    importData: function (json) {
-      var p;
-      try {
-        p = JSON.parse(json);
-      } catch (e) {
-        return { ok: false, error: "That file is not valid JSON." };
-      }
-      if (!valid(p))
-        return {
-          ok: false,
-          error:
-            "That file does not match the expected backup format. Existing data was kept.",
-        };
-      return OGA.save(p);
-    },
-    resetDemoData: function () {
-      var s = clone(SAMPLE);
-      var r = persist(s);
-      if (r.ok) {
-        state = s;
-        status = { ok: true, message: "" };
-      }
-      return r;
+    /* Public request form -> admin Requests inbox. */
+    addRequest: function (r) {
+      var next = clone(OGA.get());
+      next.requests.unshift(
+        Object.assign(
+          {
+            id:
+              "r" +
+              Date.now().toString(36) +
+              Math.random().toString(36).slice(2, 6),
+            status: "new",
+            createdAt: new Date().toISOString(),
+          },
+          r,
+        ),
+      );
+      return OGA.save(next);
     },
     onChange: function (fn) {
       window.addEventListener("storage", function (e) {
