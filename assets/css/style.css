@@ -498,3 +498,259 @@ h3 {
     scroll-behavior: auto !important;
   }
 }
+
+/* Leadership cards */
+.leadership-grid {
+  align-items: stretch;
+}
+
+.leadership-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem;
+  overflow: hidden;
+  text-align: center;
+  background: linear-gradient(160deg, #fff, var(--bg-soft));
+  border-radius: 14px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+}
+
+.leadership-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: linear-gradient(90deg, var(--green), var(--gold));
+}
+
+.leadership-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  margin-bottom: 1.2rem;
+  color: var(--green);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.leadership-role-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--green-soft);
+}
+
+.leadership-photo,
+.leadership-photo-fallback {
+  width: 128px;
+  height: 128px;
+  flex-shrink: 0;
+  margin: 0 auto 1rem;
+  border: 4px solid #fff;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow:
+    0 0 0 1px var(--line),
+    0 8px 22px rgba(0, 0, 0, 0.08);
+}
+
+.leadership-photo-fallback {
+  display: grid;
+  place-items: center;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 2.5rem;
+}
+
+.leadership-identity {
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.leadership-name {
+  margin-bottom: 0.3rem;
+  font-size: 1.15rem;
+}
+
+.leadership-title {
+  margin: 0;
+  color: var(--green);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.leadership-message {
+  width: 100%;
+  padding: 1rem 0 0;
+  border-top: 1px solid var(--line);
+  text-align: left;
+}
+
+.leadership-quote {
+  color: var(--gold);
+  font-size: 1.25rem;
+}
+
+.leadership-message p {
+  margin: 0.5rem 0 0;
+  line-height: 1.8;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+/* Announcement cards */
+.announcement-grid {
+  align-items: stretch;
+}
+
+.announcement-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 5px 22px rgba(0, 0, 0, 0.055);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.announcement-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.09);
+}
+
+.announcement-media {
+  overflow: hidden;
+  background: var(--green-soft);
+}
+
+.announcement-image,
+.announcement-image-fallback {
+  display: block;
+  width: 100%;
+  height: 190px;
+  object-fit: cover;
+}
+
+.announcement-image-fallback {
+  display: grid;
+  place-items: center;
+  color: var(--green);
+  font-size: 2.7rem;
+  background: linear-gradient(135deg, var(--green-soft), #fff);
+}
+
+.announcement-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 1.15rem;
+}
+
+.announcement-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
+}
+
+.announcement-date {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.announcement-date i {
+  color: var(--green);
+}
+
+.announcement-featured {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 20px;
+  background: #fff4cf;
+  color: #705600;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.announcement-title {
+  margin-bottom: 0.55rem;
+  font-size: 1.08rem;
+  line-height: 1.4;
+}
+
+.announcement-summary {
+  margin: 0 0 1rem;
+  color: var(--muted);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.announcement-details {
+  margin-top: auto;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+}
+
+.announcement-details summary {
+  color: var(--green);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.announcement-details summary:hover {
+  text-decoration: underline;
+}
+
+.announcement-content {
+  margin: 0.8rem 0 0;
+  line-height: 1.8;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 480px) {
+  .leadership-card {
+    padding: 1.2rem;
+  }
+
+  .announcement-image,
+  .announcement-image-fallback {
+    height: 160px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .announcement-card {
+    transition: none;
+  }
+
+  .announcement-card:hover {
+    transform: none;
+  }
+}
+
+
+/* Font Awesome action icon spacing */
+.fa-icon-patch {
+  display: inline-block;
+  margin-right: 0.45em;
+  line-height: 1;
+  flex-shrink: 0;
+}
