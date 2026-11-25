@@ -3,3 +3,4 @@ storage/questions/*
 !storage/questions/.gitkeep
 node_modules/
 backups/
+storage/sessions/

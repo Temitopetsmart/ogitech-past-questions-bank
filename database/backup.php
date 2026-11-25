@@ -35,22 +35,64 @@ if ($code !== 0 || filesize($sql) < 200) { @unlink($sql); fwrite(STDERR, "mysqld
 chmod($sql, 0600);
 echo "Database saved: $sql (" . round(filesize($sql) / 1024) . " KB)\n";
 
+
 /* 2. Uploaded PDFs. */
 $root = storage_root();
 $tar = "$dir/pqb-$stamp-files.tar";
+
 try {
     $phar = new PharData($tar);
-    if (is_dir("$root/questions")) $phar->buildFromDirectory($root, '#^' . preg_quote($root . DIRECTORY_SEPARATOR, '#') . 'questions#');
-    else $phar->addFromString('questions/.empty', '');
+    $questions = $root . DIRECTORY_SEPARATOR . 'questions';
+    $added = 0;
+
+    if (is_dir($questions)) {
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator(
+                $questions,
+                FilesystemIterator::SKIP_DOTS
+            )
+        );
+
+        foreach ($iterator as $file) {
+            if (!$file->isFile()) continue;
+
+            $relative = substr(
+                $file->getPathname(),
+                strlen($root) + 1
+            );
+
+            $relative = str_replace('\\', '/', $relative);
+
+            $phar->addFile($file->getPathname(), $relative);
+            $added++;
+        }
+    }
+
+    if ($added === 0) {
+        $phar->addFromString('questions/.empty', '');
+    }
+
     $phar->compress(Phar::GZ);
     unset($phar);
+
+    if (!is_file("$tar.gz")) {
+        throw new RuntimeException('Compressed files archive was not created.');
+    }
+
     @unlink($tar);
     chmod("$tar.gz", 0600);
-    echo "Files saved: $tar.gz (" . round(filesize("$tar.gz") / 1024) . " KB)\n";
+
+    echo "Files saved: $tar.gz (" .
+        round(filesize("$tar.gz") / 1024) . " KB, $added files)\n";
+
 } catch (Throwable $e) {
+    @unlink($tar);
+    @unlink("$tar.gz");
+
     fwrite(STDERR, 'File backup failed: ' . $e->getMessage() . "\n");
     exit(1);
 }
+
 
 /* 3. Keep only the newest N. */
 $keep = max(1, (int)config('backup_keep', 14));
