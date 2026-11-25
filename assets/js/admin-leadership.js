@@ -63,7 +63,7 @@
               h("i", { class: "fa-solid fa-user" }),
             ]);
 
-        var status = item.isVisible
+        var status = item.visible
           ? A.pill("Visible", "ok")
           : A.pill("Hidden", "warn");
 
@@ -83,8 +83,8 @@
                 edit(root, item);
               }),
               A.btn(
-                item.isVisible ? "Hide" : "Show",
-                item.isVisible ? "fa-eye-slash" : "fa-eye",
+                item.visible ? "Hide" : "Show",
+                item.visible ? "fa-eye-slash" : "fa-eye",
                 "subtle",
                 function () {
                   toggleVisibility(root, item);
@@ -117,7 +117,7 @@
       name: "",
       position: "",
       message: "",
-      isVisible: true,
+      visible: true,
       sortOrder: 0,
     };
 
@@ -143,7 +143,7 @@
         maxlength: 100,
         required: true,
       }),
-      
+
       message: A.field({
         id: "leader-message",
         label: "Message",
@@ -153,19 +153,12 @@
         required: true,
         hint: "Enter the approved message to display below the leader's name.",
       }),
-      sortOrder: A.field({
-        id: "leader-order",
-        label: "Display order",
-        type: "number",
-        value: String(current.sortOrder == null ? 0 : current.sortOrder),
-        required: true,
-        hint: "Lower numbers appear first.",
-      }),
+
       visible: A.field({
         id: "leader-visible",
         label: "Display this profile publicly",
         type: "checkbox",
-        value: current.isVisible !== false,
+        value: current.visible !== false,
       }),
     };
 
@@ -228,10 +221,7 @@
 
     var form = h("form", { class: "qform", novalidate: "" }, [
       A.card("Profile details", [
-        h("div", { class: "formgrid" }, [
-          fields.name.wrap,
-          fields.sortOrder.wrap,
-        ]),
+        h("div", { class: "formgrid" }, [fields.name.wrap]),
         fields.message.wrap,
         fields.visible.wrap,
       ]),
@@ -257,7 +247,6 @@
 
       var name = fields.name.get();
       var message = fields.message.get();
-      var order = fields.sortOrder.get();
       var visible = fields.visible.get();
 
       var errors = {};
@@ -282,9 +271,8 @@
       var data = new FormData();
       data.append("name", name);
       data.append("message", message);
-      data.append("sortOrder", String(Number(order)));
       data.append("visible", visible ? "1" : "0");
-      if (file) data.append("photo", file);
+      if (file) data.append("image", file);
 
       A.busy(save, true, "Saving…");
 
@@ -313,13 +301,12 @@
     var data = new FormData();
     data.append("name", item.name);
     data.append("message", item.message);
-    data.append("sortOrder", String(item.sortOrder || 0));
-    data.append("visible", item.isVisible ? "0" : "1");
+    data.append("visible", item.visible ? "0" : "1");
 
     A.api("POST", "admin/leadership/" + encodeURIComponent(item.id), {
       form: data,
     }).then(function () {
-      A.notify(item.isVisible ? "Profile hidden." : "Profile is now visible.");
+      A.notify(item.visible ? "Profile hidden." : "Profile is now visible.");
       reload(root);
     }, A.handleError);
   }
