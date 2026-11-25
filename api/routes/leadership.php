@@ -43,7 +43,7 @@ function leadership_delete_image(?string $path): void
     }
 }
 
-function leadership_store_image(): array
+function leadership_store_image(): string
 {
     if (empty($_FILES['image'])) {
         fail(422, 'image_required', 'Upload a leadership photograph.');
