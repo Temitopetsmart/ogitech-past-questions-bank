@@ -9,7 +9,7 @@ require __DIR__ . '/lib/auth.php';
 require __DIR__ . '/lib/present.php';
 require __DIR__ . '/lib/pdf.php';
 require __DIR__ . '/lib/files.php';
-foreach (['public', 'auth', 'admin', 'structure', 'users'] as $r) require __DIR__ . "/routes/$r.php";
+foreach (['public', 'auth', 'admin', 'structure', 'users', 'leadership'] as $r) require __DIR__ . "/routes/$r.php";
 
 dispatch([
     // Public
@@ -18,6 +18,16 @@ dispatch([
     ['GET',  '/public/questions/{id}',         'pub_question',         'public'],
     ['GET',  '/public/questions/{id}/file',    'pub_file',             'public'],
     ['POST', '/public/requests',               'pub_request_create',   'public'],
+
+    // Public leadership
+    ['GET', '/public/leadership', 'pub_leadership', 'public'],
+    ['GET', '/public/leadership/{id}/image', 'pub_leadership_image', 'public'],
+
+    // Admin leadership management
+    ['GET', '/admin/leadership', 'adm_leadership_list', 'admin'],
+    ['POST', '/admin/leadership', 'adm_leadership_save', 'admin'],
+    ['POST', '/admin/leadership/{id}', 'adm_leadership_save', 'admin'],
+    ['DELETE', '/admin/leadership/{id}', 'adm_leadership_delete', 'admin'],
 
     // Authentication
     ['POST', '/auth/login',                    'auth_login',           'public'],

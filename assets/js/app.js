@@ -404,29 +404,25 @@
       });
       return ol;
     },
-    leadership: function () {
-      var L = OGA.get().leadership;
-      var wrap = h("div", { class: "two leadership-grid" });
+    leadership: function (sec, data) {
+      var leaders = (data.leadership || []).filter(function (person) {
+        return person && person.isVisible !== false;
+      });
 
-      ["rector", "sug"].forEach(function (k) {
-        var p = L[k];
-        if (!p || !p.visible) return;
+      if (!leaders.length) return null;
 
-        var photoUrl = String(p.photo || "").trim();
-        var uploadedImage =
-          /^data:image\/(jpeg|png|webp);base64,[a-z0-9+/=]+$/i.test(photoUrl);
+      var wrap = h("div", { class: "leadership-grid" });
 
-        var hasPhoto =
-          photoUrl && (uploadedImage || safeHref(photoUrl) !== "#");
+      leaders.forEach(function (person) {
+        var photoUrl = person.photoUrl || person.imageUrl || "";
+        var name = person.name || "";
 
-        var photo = hasPhoto
+        var photo = photoUrl
           ? h("img", {
               class: "leadership-photo",
               src: photoUrl,
-              alt: p.name ? "Portrait of " + p.name : "Leadership portrait",
+              alt: "Portrait of " + name,
               loading: "lazy",
-              width: "128",
-              height: "128",
             })
           : h(
               "div",
@@ -437,7 +433,7 @@
               [h("i", { class: "fa-solid fa-user-tie" })],
             );
 
-        if (hasPhoto) {
+        if (photoUrl) {
           photo.onerror = function () {
             photo.replaceWith(
               h(
@@ -452,60 +448,33 @@
           };
         }
 
-        var role = p.title || (k === "rector" ? "Rector" : "SUG President");
-
         wrap.appendChild(
-          h("article", { class: "card leadership-card" }, [
-            h("div", { class: "leadership-card-top" }, [
-              h(
-                "span",
-                {
-                  class: "leadership-role-icon",
-                  "aria-hidden": "true",
-                },
-                [
-                  h("i", {
-                    class:
-                      k === "rector"
-                        ? "fa-solid fa-building-columns"
-                        : "fa-solid fa-users",
-                  }),
-                ],
-              ),
-              h("span", {
-                class: "leadership-role",
-                text: role,
-              }),
-            ]),
+          h("article", { class: "leadership-card" }, [
+            h("div", { class: "leadership-image-wrap" }, [photo]),
 
-            photo,
-
-            h("div", { class: "leadership-identity" }, [
+            h("div", { class: "leadership-content" }, [
               h("h3", {
                 class: "leadership-name",
-                text: p.name || role,
+                text: name,
               }),
-              h("p", {
-                class: "leadership-title",
-                text: p.name ? role : "",
-              }),
-            ]),
 
-            h("div", { class: "leadership-message" }, [
-              h("i", {
-                class: "fa-solid fa-quote-left leadership-quote",
-                "aria-hidden": "true",
-              }),
-              h("p", {
-                text: p.message || "",
-              }),
+              h("div", { class: "leadership-message" }, [
+                h("i", {
+                  class: "fa-solid fa-quote-left leadership-quote",
+                  "aria-hidden": "true",
+                }),
+                h("p", {
+                  text: person.message || "",
+                }),
+              ]),
             ]),
           ]),
         );
       });
 
-      return wrap.children.length ? wrap : null;
+      return wrap;
     },
+
     featured: function (sec, data) {
       if (data.failed) return problem();
       var list = data.featured.slice(0, sec.limit);
@@ -644,12 +613,14 @@
       OGA.questions({ sort: "recent", perPage: 6 }),
       OGA.questions({ featured: 1, sort: "updated", perPage: 6 }),
       OGA.questions({ sort: "popular", perPage: 6 }),
+      OGA.leadership(),
     ]).then(function (r) {
       return {
         departments: r[0].departments,
         recent: r[1].data,
         featured: r[2].data,
         popular: r[3].data,
+        leadership: r[4],
       };
     });
   }
@@ -698,7 +669,7 @@
     applyTheme(s);
     renderHeader(s);
     renderFooter(s);
-     if (document.body.dataset.page === "home") {
+    if (document.body.dataset.page === "home") {
       renderHero(s);
       renderSections();
     }

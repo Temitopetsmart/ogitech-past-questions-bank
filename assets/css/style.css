@@ -499,112 +499,197 @@ h3 {
   }
 }
 
-/* Leadership cards */
+/* Leadership — image-focused layout */
 .leadership-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
   align-items: stretch;
 }
 
 .leadership-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 1.5rem;
-  overflow: hidden;
-  text-align: center;
-  background: linear-gradient(160deg, #fff, var(--bg-soft));
-  border-radius: 14px;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
-}
-
-.leadership-card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 5px;
-  background: linear-gradient(90deg, var(--green), var(--gold));
-}
-
-.leadership-card-top {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.55rem;
-  margin-bottom: 1.2rem;
-  color: var(--green);
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.leadership-role-icon {
   display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
+  grid-template-columns: 1fr;
+  overflow: hidden;
+  padding: 0;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 5px 22px rgba(0, 0, 0, 0.055);
+}
+
+.leadership-image-wrap {
+  width: 100%;
+  height: 300px;
+  overflow: hidden;
   background: var(--green-soft);
 }
 
 .leadership-photo,
 .leadership-photo-fallback {
-  width: 128px;
-  height: 128px;
-  flex-shrink: 0;
-  margin: 0 auto 1rem;
-  border: 4px solid #fff;
-  border-radius: 50%;
+  display: block;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  box-shadow:
-    0 0 0 1px var(--line),
-    0 8px 22px rgba(0, 0, 0, 0.08);
+  object-position: center 25%;
 }
 
 .leadership-photo-fallback {
   display: grid;
   place-items: center;
-  background: var(--green-soft);
   color: var(--green);
-  font-size: 2.5rem;
+  font-size: 4rem;
+  background: var(--green-soft);
 }
 
-.leadership-identity {
-  width: 100%;
-  margin-bottom: 1rem;
+.leadership-content {
+  padding: 1.4rem;
+}
+
+.leadership-position {
+  margin: 0 0 0.45rem;
+  color: var(--green);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
 }
 
 .leadership-name {
-  margin-bottom: 0.3rem;
-  font-size: 1.15rem;
-}
-
-.leadership-title {
-  margin: 0;
-  color: var(--green);
-  font-size: 0.9rem;
-  font-weight: 600;
+  margin: 0 0 1rem;
+  font-size: 1.25rem;
+  line-height: 1.35;
 }
 
 .leadership-message {
-  width: 100%;
-  padding: 1rem 0 0;
+  padding-top: 1rem;
   border-top: 1px solid var(--line);
   text-align: left;
 }
 
 .leadership-quote {
-  color: var(--gold);
-  font-size: 1.25rem;
+  color: var(--green);
+  font-size: 1.2rem;
 }
 
 .leadership-message p {
-  margin: 0.5rem 0 0;
+  margin: 0.55rem 0 0;
+  color: var(--muted);
   line-height: 1.8;
   white-space: pre-line;
   overflow-wrap: anywhere;
+}
+
+@media (min-width: 700px) {
+  .leadership-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .leadership-image-wrap {
+    height: 340px;
+  }
+}
+
+@media (min-width: 1000px) {
+  .leadership-image-wrap {
+    height: 380px;
+  }
+}
+
+/* Leadership admin management */
+.leadership-admin-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.leadership-admin-item {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 0.8rem;
+  align-items: center;
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: #fff;
+}
+
+.leadership-admin-thumb {
+  width: 76px;
+  height: 76px;
+  border-radius: var(--r);
+  object-fit: cover;
+  background: var(--green-soft);
+}
+
+.leadership-admin-thumb.empty-photo,
+.leadership-form-placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--green);
+  font-size: 1.8rem;
+  background: var(--green-soft);
+}
+
+.leadership-admin-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.leadership-admin-info strong {
+  overflow-wrap: anywhere;
+}
+
+.leadership-admin-item .q-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.leadership-upload-layout {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+}
+
+.leadership-preview-wrap {
+  width: 120px;
+  height: 140px;
+  overflow: hidden;
+  border-radius: var(--r);
+  background: var(--green-soft);
+}
+
+.leadership-form-preview,
+.leadership-form-placeholder {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.leadership-form-placeholder {
+  font-size: 2.5rem;
+}
+
+@media (min-width: 650px) {
+  .leadership-admin-item {
+    grid-template-columns: 76px minmax(0, 1fr) auto;
+  }
+
+  .leadership-admin-item .q-actions {
+    grid-column: auto;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 420px) {
+  .leadership-upload-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Announcement cards */
@@ -745,7 +830,6 @@ h3 {
     transform: none;
   }
 }
-
 
 /* Font Awesome action icon spacing */
 .fa-icon-patch {
