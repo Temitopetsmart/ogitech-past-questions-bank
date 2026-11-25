@@ -118,7 +118,6 @@
       position: "",
       message: "",
       visible: true,
-      sortOrder: 0,
     };
 
     A.clear(root);
@@ -252,10 +251,6 @@
       var errors = {};
       if (name.length < 2) errors.name = "Enter the leader's full name.";
       if (!message) errors.message = "Enter the leadership message.";
-      if (!/^\d+$/.test(order) || Number(order) > 9999) {
-        errors.sortOrder = "Enter a valid display order.";
-      }
-
       if (!A.applyErrors(fields, errors)) {
         A.notify("Please correct the highlighted fields.", "error");
         return;
