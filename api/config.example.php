@@ -30,6 +30,18 @@ return [
         'pdf_max_edge_px'  => 3508,       // images are scaled down to this longest edge inside the PDF
     ],
 
+    // Only if the site sits behind a proxy/CDN (e.g. Cloudflare): list ITS addresses or CIDR ranges here so visitors'
+    // real addresses are used for rate limiting. Leave empty otherwise. Never list addresses you do not control.
+    'trusted_proxies' => [],
+
+    // Optional: a private folder for login sessions (default: <storage_path>/sessions).
+    'session_path' => null,
+
+    // Backups (php database/backup.php). backup_path MUST be outside the public web root.
+    'backup_path' => null,          // e.g. '/home/youraccount/pqb-backups'
+    'backup_keep' => 14,            // how many recent backups to keep
+    'mysqldump'   => 'mysqldump',   // XAMPP on Windows: 'C:\\xampp\\mysql\\bin\\mysqldump.exe'
+
     'year_min' => 2000,
 
     // true = include technical detail in 500 errors. Never enable on a live site.

@@ -8,9 +8,22 @@ function start_session(): void
 {
     if (session_status() === PHP_SESSION_ACTIVE) return;
     $secure = config('secure_cookies');
-    if ($secure === null) $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+    if ($secure === null) {
+        $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+        // Behind a trusted proxy/CDN that terminates HTTPS, PHP only sees plain HTTP: believe its forwarded protocol.
+        if (!$secure && strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https'
+            && ip_matches((string)($_SERVER['REMOTE_ADDR'] ?? ''), (array)config('trusted_proxies', []))) $secure = true;
+    }
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');
+    // Keep session files in our own private folder and let PHP clean them up only after they truly expire.
+    // (PHP's default cleanup is 24 minutes, which would sign admins out long before the idle limit.)
+    $dir = (string)(config('session_path') ?: storage_root() . '/sessions');
+    if (!is_dir($dir) && !@mkdir($dir, 0700, true)) fail(500, 'storage_error', 'The session folder could not be created.');
+    ini_set('session.save_path', $dir);
+    ini_set('session.gc_maxlifetime', (string)max((int)config('session_idle_minutes', 120) * 60, (int)config('session_max_hours', 12) * 3600));
+    ini_set('session.gc_probability', '1');
+    ini_set('session.gc_divisor', '100');
     session_name('pqb_sid');
     session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => (bool)$secure, 'httponly' => true, 'samesite' => 'Lax']);
     session_start();

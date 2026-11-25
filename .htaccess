@@ -1,0 +1,32 @@
+# Web server hardening for the Past Questions Bank (Apache). Requires AllowOverride All (the XAMPP default).
+Options -Indexes
+ServerSignature Off
+
+# Never serve project files that are not part of the website.
+<FilesMatch "(\.(sql|md|sh|log|bak|ini|lock|example\.php)$)">
+  Require all denied
+</FilesMatch>
+RedirectMatch 404 "(^|/)\.git"
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+
+  # Content-Security-Policy in REPORT-ONLY mode: nothing is blocked, but the browser console lists anything
+  # that WOULD be. After browsing the public site and admin with no warnings, rename the header to
+  # "Content-Security-Policy" to enforce it.
+  Header always set Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
+
+  # Once the site is on HTTPS, remove the leading # on the next line (tells browsers to always use HTTPS).
+  # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+</IfModule>
+
+# Once you have a valid HTTPS certificate, remove the leading # on these lines to force HTTPS.
+# <IfModule mod_rewrite.c>
+#   RewriteEngine On
+#   RewriteCond %{HTTPS} !=on
+#   RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+#   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# </IfModule>

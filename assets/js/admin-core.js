@@ -25,11 +25,25 @@
     return document.getElementById(id);
   }
 
+  /* SweetAlert2 renders titles as HTML, so any text that can contain user-entered names must be escaped. */
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      }[c];
+    });
+  }
+
   var views = {},
     order = [],
     routeTicket = 0;
   var A = {
     h: h,
+    esc: esc,
     clear: clear,
     $: $,
     pending: null,
@@ -229,7 +243,7 @@
         timer: type === "error" ? 5500 : 3000,
         timerProgressBar: true,
         icon: type === "error" ? "error" : "success",
-        title: String(msg || ""),
+        title: esc(msg),
       });
       return;
     }
@@ -246,7 +260,7 @@
     if (window.Swal && Swal.fire)
       return Swal.fire({
         icon: "error",
-        title: title,
+        title: esc(title),
         text: text,
         confirmButtonColor: GREEN,
       });
@@ -259,7 +273,7 @@
     }
     Swal.fire({
       icon: "warning",
-      title: title,
+      title: esc(title),
       text: text,
       showCancelButton: true,
       confirmButtonText: label || "Confirm",
@@ -275,7 +289,7 @@
   A.dialog = function (title, node, o) {
     o = o || {};
     return Swal.fire({
-      title: title,
+      title: esc(title),
       html: node,
       width: 560,
       confirmButtonColor: GREEN,
@@ -290,7 +304,7 @@
   };
   A.prompt = function (title, value, validator, onOk) {
     Swal.fire({
-      title: title,
+      title: esc(title),
       input: "text",
       inputValue: value || "",
       inputAttributes: { maxlength: 30, autocapitalize: "off" },

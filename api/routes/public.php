@@ -29,8 +29,13 @@ function pub_questions(array $p): void
 function pub_question(array $p): void
 {
     $r = get_question(path_id($p), true);
-    q('UPDATE questions SET view_count = view_count + 1 WHERE id = ?', [$r['id']]);
-    $r['view_count']++;
+    // One view per visitor per question per hour, so refreshing (or a bot) cannot inflate the numbers.
+    $k = client_ip() . '|' . $r['id'];
+    if (rl_count('view', $k, 3600) === 0) {
+        rl_hit('view', $k);
+        q('UPDATE questions SET view_count = view_count + 1 WHERE id = ?', [$r['id']]);
+        $r['view_count']++;
+    }
     json_out(['data' => question_json($r, false)]);
 }
 
@@ -38,7 +43,13 @@ function pub_file(array $p): void
 {
     $r = get_question(path_id($p), true);
     $download = ($_GET['download'] ?? '') === '1';
-    if ($download && !empty($r['file_path'])) q('UPDATE questions SET download_count = download_count + 1 WHERE id = ?', [$r['id']]);
+    if ($download && !empty($r['file_path'])) {
+        $k = client_ip() . '|' . $r['id'];
+        if (rl_count('download', $k, 3600) === 0) {
+            rl_hit('download', $k);
+            q('UPDATE questions SET download_count = download_count + 1 WHERE id = ?', [$r['id']]);
+        }
+    }
     stream_pdf($r, !$download);
 }
 

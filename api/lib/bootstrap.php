@@ -4,6 +4,10 @@ declare(strict_types=1);
 date_default_timezone_set('UTC');
 mb_internal_encoding('UTF-8');
 
+// Never print PHP errors into API responses; they are written to the server log instead.
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+
 /* ---------- Errors ---------- */
 final class HttpError extends RuntimeException
 {
@@ -81,7 +85,39 @@ function request_path(): string
     return '/' . trim(rawurldecode($uri), '/');
 }
 
-function client_ip(): string { return substr((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'), 0, 45); }
+/** True if $ip equals, or falls inside, any entry of $list (single IPs or CIDR ranges, IPv4 or IPv6). */
+function ip_matches(string $ip, array $list): bool
+{
+    $bin = @inet_pton($ip);
+    if ($bin === false) return false;
+    foreach ($list as $entry) {
+        [$net, $bits] = array_pad(explode('/', (string)$entry, 2), 2, null);
+        $nb = @inet_pton($net);
+        if ($nb === false || strlen($nb) !== strlen($bin)) continue;
+        $bits = $bits === null ? strlen($bin) * 8 : (int)$bits;
+        $bytes = intdiv($bits, 8); $rem = $bits % 8;
+        if (substr($bin, 0, $bytes) !== substr($nb, 0, $bytes)) continue;
+        if ($rem === 0) return true;
+        $mask = (0xFF << (8 - $rem)) & 0xFF;
+        if ((ord($bin[$bytes]) & $mask) === (ord($nb[$bytes]) & $mask)) return true;
+    }
+    return false;
+}
+
+/** The visitor's address. X-Forwarded-For is believed ONLY when the request comes from a proxy listed in
+ *  config 'trusted_proxies'; otherwise anyone could fake their address and dodge the rate limits. */
+function client_ip(): string
+{
+    $ip = substr((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'), 0, 45);
+    $trusted = (array)config('trusted_proxies', []);
+    if ($trusted && ip_matches($ip, $trusted) && !empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        $hops = array_map('trim', explode(',', (string)$_SERVER['HTTP_X_FORWARDED_FOR']));
+        for ($i = count($hops) - 1; $i >= 0; $i--) {          // right-most address that is not one of our proxies
+            if (filter_var($hops[$i], FILTER_VALIDATE_IP) && !ip_matches($hops[$i], $trusted)) return $hops[$i];
+        }
+    }
+    return $ip;
+}
 
 /** Request data: JSON body, or form fields for multipart/form posts. */
 function body(): array
@@ -150,6 +186,7 @@ final class Check
         $v = (string)$v;
         if (!mb_check_encoding($v, 'UTF-8')) { $this->errors[$k] = "$label has invalid characters."; return ''; }
         $v = clean($v, $multi);
+        if (!$multi && preg_match('/[<>]/', $v)) { $this->errors[$k] = "$label cannot contain < or > characters."; return $v; }
         $len = mb_strlen($v);
         if ($len === 0 && $min > 0) $this->errors[$k] = "$label is required.";
         elseif ($len > 0 && $len < $min) $this->errors[$k] = "$label must be at least $min characters.";
