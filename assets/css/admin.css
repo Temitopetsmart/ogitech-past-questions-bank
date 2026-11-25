@@ -189,6 +189,15 @@ code {
     transform: rotate(360deg);
   }
 }
+.boot {
+  min-height: 100vh;
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  margin: 0;
+}
 .loading {
   display: flex;
   gap: 0.6rem;
@@ -345,30 +354,7 @@ code {
 .login-card .btn {
   margin-top: 0.4rem;
 }
-.demo-login {
-  margin-top: 1.25rem;
-  padding: 0.9rem;
-  border: 1px dashed var(--gold);
-  background: #fffbea;
-  border-radius: var(--r);
-  font-size: 0.9rem;
-}
-.demo-title {
-  font-weight: 700;
-  margin-bottom: 0.4rem;
-}
-.demo-login dl {
-  margin: 0 0 0.5rem;
-  display: grid;
-  gap: 0.15rem;
-}
-.demo-login dt {
-  font-weight: 600;
-  margin-top: 0.4rem;
-}
-.demo-login dd {
-  margin: 0;
-}
+
 .login-back {
   display: inline-block;
   margin-top: 1rem;

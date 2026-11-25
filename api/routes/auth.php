@@ -9,13 +9,15 @@ function auth_login(array $p): void
     if ($username === '' || $password === '') fail(422, 'validation', 'Enter your username and password.');
     if (strlen($username) > 30 || strlen($password) > 200) fail(401, 'bad_credentials', 'Incorrect username or password.');
     $u = do_login($username, $password);
-    json_out(['user' => user_json($u), 'csrfToken' => csrf_token()]);
+    json_out(['user' => user_json($u), 'csrfToken' => csrf_token(), 'newRequests' => new_request_count()]);
 }
+
+function new_request_count(): int { return (int)q_val("SELECT COUNT(*) FROM question_requests WHERE status = 'new'"); }
 
 function auth_me(array $p): void
 {
     $u = current_user();
-    json_out($u ? ['user' => user_json($u), 'csrfToken' => csrf_token()] : ['user' => null, 'csrfToken' => null]);
+    json_out($u ? ['user' => user_json($u), 'csrfToken' => csrf_token(), 'newRequests' => new_request_count()] : ['user' => null, 'csrfToken' => null]);
 }
 
 function auth_logout(array $p): void

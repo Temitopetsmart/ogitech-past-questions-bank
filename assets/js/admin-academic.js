@@ -1,5 +1,6 @@
 /* Academic structure (Main Admin only): programmes, levels, semesters, academic sessions.
-   Items in use by questions cannot be deleted. Renaming programmes, levels and semesters updates the records that use them. */
+   The server refuses to delete anything still used by questions. Renaming is safe because questions
+   point to records by id, so every question picks up the new name automatically. */
 (function () {
   var A = OGAAdmin,
     h = A.h;
@@ -9,11 +10,16 @@
     "academic",
     "Academic Structure",
     function (root) {
-      render(root);
+      return A.loadStructure().then(function () {
+        render(root);
+      });
     },
     { icon: "fa-sitemap", roles: ["main"], group: "admin" },
   );
 
+  function S() {
+    return A.structure;
+  }
   function lc(s) {
     return String(s).toLowerCase();
   }
@@ -28,8 +34,17 @@
       return "That " + label.toLowerCase() + " already exists.";
     return "";
   }
-  function qCount(fn) {
-    return OGA.getQuestions(true).filter(fn).length;
+  function plural(n, one) {
+    return n + " " + one + (n === 1 ? "" : "s");
+  }
+
+  /* Run an API change, store the fresh structure it returns, and redraw. */
+  function change(method, path, json, msg, redo) {
+    A.api(method, path, { json: json }).then(function (res) {
+      A.setStructure(res);
+      if (msg) A.notify(msg);
+      redo();
+    }, A.handleError);
   }
 
   function render(root) {
@@ -108,111 +123,81 @@
 
   /* ---------- Programmes ---------- */
   function programmes(box, redo) {
-    var s = OGA.get(),
-      P = s.options.programmes;
+    var P = S().programmes,
+      names = P.map(function (p) {
+        return p.name;
+      });
     box.appendChild(
       addBtn("Add programme", function () {
         A.prompt(
           "New programme",
           "",
           function (v) {
-            return nameCheck(v, P, "Programme");
+            return nameCheck(v, names, "Programme");
           },
           function (v) {
-            if (
-              A.commit(function (n) {
-                n.options.programmes.push(v);
-                n.options.levels[v] = [];
-              })
-            ) {
-              A.notify("Added " + v + ". Now add its levels.");
-              redo();
-            }
+            change(
+              "POST",
+              "admin/programmes",
+              { name: v },
+              "Added " + v + ". Now add its levels.",
+              redo,
+            );
           },
         );
       }),
     );
     P.forEach(function (p) {
-      var qs = qCount(function (x) {
-          return x.programme === p;
-        }),
-        ds = s.departments.filter(function (d) {
-          return d.programmes.indexOf(p) !== -1;
-        }).length;
+      var inUse = p.questionCount > 0 || p.departmentCount > 0;
       box.appendChild(
         row(
-          p,
-          (s.options.levels[p] || []).length +
-            " levels · " +
-            ds +
-            " departments · " +
-            qs +
-            " questions",
+          p.name,
+          plural(p.levels.length, "level") +
+            " · " +
+            plural(p.departmentCount, "department") +
+            " · " +
+            plural(p.questionCount, "question"),
           function () {
             A.prompt(
               "Rename programme",
-              p,
+              p.name,
               function (v) {
                 return nameCheck(
                   v,
-                  P.filter(function (x) {
-                    return x !== p;
+                  names.filter(function (x) {
+                    return x !== p.name;
                   }),
                   "Programme",
                 );
               },
               function (v) {
-                if (
-                  A.commit(function (n) {
-                    n.options.programmes = n.options.programmes.map(
-                      function (x) {
-                        return x === p ? v : x;
-                      },
-                    );
-                    n.options.levels[v] = n.options.levels[p];
-                    if (v !== p) delete n.options.levels[p];
-                    n.departments.forEach(function (d) {
-                      d.programmes = d.programmes.map(function (x) {
-                        return x === p ? v : x;
-                      });
-                    });
-                    n.questions.forEach(function (x) {
-                      if (x.programme === p) x.programme = v;
-                    });
-                    n.requests.forEach(function (x) {
-                      if (x.programme === p) x.programme = v;
-                    });
-                  })
-                ) {
-                  A.notify("Renamed to " + v + ".");
-                  redo();
-                }
+                change(
+                  "PUT",
+                  "admin/programmes/" + p.id,
+                  { name: v },
+                  "Renamed to " + v + ".",
+                  redo,
+                );
               },
             );
           },
           function () {
             A.confirm(
-              "Delete " + p + "?",
+              "Delete " + p.name + "?",
               "Its levels will be removed too.",
               "Delete programme",
               function () {
-                if (
-                  A.commit(function (n) {
-                    n.options.programmes = n.options.programmes.filter(
-                      function (x) {
-                        return x !== p;
-                      },
-                    );
-                    delete n.options.levels[p];
-                  })
-                ) {
-                  A.notify("Deleted " + p + ".");
-                  redo();
-                }
+                change(
+                  "DELETE",
+                  "admin/programmes/" + p.id,
+                  undefined,
+                  "Deleted " + p.name + ".",
+                  redo,
+                );
               },
             );
           },
-          P.length > 1 && !qs && !ds,
+          P.length > 1 && !inUse,
           P.length <= 1
             ? "At least one programme is required."
             : "In use by questions or departments. Move or remove them first.",
@@ -223,102 +208,83 @@
 
   /* ---------- Levels ---------- */
   function levels(box, redo) {
-    var s = OGA.get();
-    s.options.programmes.forEach(function (p) {
-      var L = s.options.levels[p] || [];
+    S().programmes.forEach(function (p) {
+      var names = p.levels.map(function (l) {
+        return l.name;
+      });
       box.appendChild(
         h("div", { class: "group-head" }, [
-          h("h2", { text: p }),
+          h("h2", { text: p.name }),
           A.btn("Add level", "fa-plus", "ghost sm", function () {
             A.prompt(
-              "New " + p + " level",
+              "New " + p.name + " level",
               "",
               function (v) {
-                return nameCheck(v, L, "Level");
+                return nameCheck(v, names, "Level");
               },
               function (v) {
-                if (
-                  A.commit(function (n) {
-                    n.options.levels[p].push(v);
-                  })
-                ) {
-                  A.notify("Added " + v + ".");
-                  redo();
-                }
+                change(
+                  "POST",
+                  "admin/levels",
+                  { programmeId: p.id, name: v },
+                  "Added " + v + ".",
+                  redo,
+                );
               },
             );
           }),
         ]),
       );
-      if (!L.length)
+      if (!p.levels.length)
         box.appendChild(
-          h("p", { class: "muted", text: "No levels yet for " + p + "." }),
+          h("p", { class: "muted", text: "No levels yet for " + p.name + "." }),
         );
-      L.forEach(function (l) {
-        var qs = qCount(function (x) {
-          return x.programme === p && x.level === l;
-        });
+      p.levels.forEach(function (l) {
         box.appendChild(
           row(
-            l,
-            qs + (qs === 1 ? " question" : " questions"),
+            l.name,
+            plural(l.questionCount, "question"),
             function () {
               A.prompt(
                 "Rename level",
-                l,
+                l.name,
                 function (v) {
                   return nameCheck(
                     v,
-                    L.filter(function (x) {
-                      return x !== l;
+                    names.filter(function (x) {
+                      return x !== l.name;
                     }),
                     "Level",
                   );
                 },
                 function (v) {
-                  if (
-                    A.commit(function (n) {
-                      n.options.levels[p] = n.options.levels[p].map(
-                        function (x) {
-                          return x === l ? v : x;
-                        },
-                      );
-                      n.questions.forEach(function (x) {
-                        if (x.programme === p && x.level === l) x.level = v;
-                      });
-                      n.requests.forEach(function (x) {
-                        if (x.programme === p && x.level === l) x.level = v;
-                      });
-                    })
-                  ) {
-                    A.notify("Renamed to " + v + ".");
-                    redo();
-                  }
+                  change(
+                    "PUT",
+                    "admin/levels/" + l.id,
+                    { name: v },
+                    "Renamed to " + v + ".",
+                    redo,
+                  );
                 },
               );
             },
             function () {
               A.confirm(
-                "Delete " + l + "?",
+                "Delete " + l.name + "?",
                 "This level will no longer be selectable.",
                 "Delete level",
                 function () {
-                  if (
-                    A.commit(function (n) {
-                      n.options.levels[p] = n.options.levels[p].filter(
-                        function (x) {
-                          return x !== l;
-                        },
-                      );
-                    })
-                  ) {
-                    A.notify("Deleted " + l + ".");
-                    redo();
-                  }
+                  change(
+                    "DELETE",
+                    "admin/levels/" + l.id,
+                    undefined,
+                    "Deleted " + l.name + ".",
+                    redo,
+                  );
                 },
               );
             },
-            !qs,
+            l.questionCount === 0,
             "Questions use this level. Move or delete them first.",
           ),
         );
@@ -328,92 +294,77 @@
 
   /* ---------- Semesters ---------- */
   function semesters(box, redo) {
-    var S = OGA.get().options.semesters;
+    var M = S().semesters,
+      names = M.map(function (m) {
+        return m.name;
+      });
     box.appendChild(
       addBtn("Add semester", function () {
         A.prompt(
           "New semester",
           "",
           function (v) {
-            return nameCheck(v, S, "Semester");
+            return nameCheck(v, names, "Semester");
           },
           function (v) {
-            if (
-              A.commit(function (n) {
-                n.options.semesters.push(v);
-              })
-            ) {
-              A.notify("Added " + v + ".");
-              redo();
-            }
+            change(
+              "POST",
+              "admin/semesters",
+              { name: v },
+              "Added " + v + ".",
+              redo,
+            );
           },
         );
       }),
     );
-    S.forEach(function (m) {
-      var qs = qCount(function (x) {
-        return x.semester === m;
-      });
+    M.forEach(function (m) {
       box.appendChild(
         row(
-          m,
-          qs + (qs === 1 ? " question" : " questions"),
+          m.name,
+          plural(m.questionCount, "question"),
           function () {
             A.prompt(
               "Rename semester",
-              m,
+              m.name,
               function (v) {
                 return nameCheck(
                   v,
-                  S.filter(function (x) {
-                    return x !== m;
+                  names.filter(function (x) {
+                    return x !== m.name;
                   }),
                   "Semester",
                 );
               },
               function (v) {
-                if (
-                  A.commit(function (n) {
-                    n.options.semesters = n.options.semesters.map(function (x) {
-                      return x === m ? v : x;
-                    });
-                    n.questions.forEach(function (x) {
-                      if (x.semester === m) x.semester = v;
-                    });
-                    n.requests.forEach(function (x) {
-                      if (x.semester === m) x.semester = v;
-                    });
-                  })
-                ) {
-                  A.notify("Renamed to " + v + ".");
-                  redo();
-                }
+                change(
+                  "PUT",
+                  "admin/semesters/" + m.id,
+                  { name: v },
+                  "Renamed to " + v + ".",
+                  redo,
+                );
               },
             );
           },
           function () {
             A.confirm(
-              "Delete " + m + "?",
+              "Delete " + m.name + "?",
               "This semester will no longer be selectable.",
               "Delete semester",
               function () {
-                if (
-                  A.commit(function (n) {
-                    n.options.semesters = n.options.semesters.filter(
-                      function (x) {
-                        return x !== m;
-                      },
-                    );
-                  })
-                ) {
-                  A.notify("Deleted " + m + ".");
-                  redo();
-                }
+                change(
+                  "DELETE",
+                  "admin/semesters/" + m.id,
+                  undefined,
+                  "Deleted " + m.name + ".",
+                  redo,
+                );
               },
             );
           },
-          S.length > 1 && !qs,
-          S.length <= 1
+          M.length > 1 && m.questionCount === 0,
+          M.length <= 1
             ? "At least one semester is required."
             : "Questions use this semester. Move or delete them first.",
         ),
@@ -435,7 +386,7 @@
     return "";
   }
   function sessions(box, redo) {
-    var S = OGA.getSessions();
+    var L = S().sessions;
     box.appendChild(
       h("p", { class: "note" }, [
         h("i", { class: "fa-solid fa-circle-info", "aria-hidden": "true" }),
@@ -448,29 +399,25 @@
           "New academic session",
           "",
           function (v) {
-            return sessionCheck(v, S);
+            return sessionCheck(v, L);
           },
           function (v) {
-            if (
-              A.commit(function (n) {
-                n.sessions.push({ id: v.replace("/", "-"), name: v });
-              })
-            ) {
-              A.notify("Added " + v + ".");
-              redo();
-            }
+            change(
+              "POST",
+              "admin/sessions",
+              { name: v },
+              "Added " + v + ".",
+              redo,
+            );
           },
         );
       }),
     );
-    S.forEach(function (x) {
-      var qs = qCount(function (q) {
-        return q.sessionId === x.id;
-      });
+    L.forEach(function (x) {
       box.appendChild(
         row(
           x.name,
-          qs + (qs === 1 ? " question" : " questions"),
+          plural(x.questionCount, "question"),
           function () {
             A.prompt(
               "Rename session",
@@ -478,22 +425,19 @@
               function (v) {
                 return sessionCheck(
                   v,
-                  S.filter(function (o) {
+                  L.filter(function (o) {
                     return o.id !== x.id;
                   }),
                 );
               },
               function (v) {
-                if (
-                  A.commit(function (n) {
-                    n.sessions.filter(function (o) {
-                      return o.id === x.id;
-                    })[0].name = v;
-                  })
-                ) {
-                  A.notify("Renamed to " + v + ".");
-                  redo();
-                }
+                change(
+                  "PUT",
+                  "admin/sessions/" + x.id,
+                  { name: v },
+                  "Renamed to " + v + ".",
+                  redo,
+                );
               },
             );
           },
@@ -503,20 +447,17 @@
               "This session will no longer be selectable.",
               "Delete session",
               function () {
-                if (
-                  A.commit(function (n) {
-                    n.sessions = n.sessions.filter(function (o) {
-                      return o.id !== x.id;
-                    });
-                  })
-                ) {
-                  A.notify("Deleted " + x.name + ".");
-                  redo();
-                }
+                change(
+                  "DELETE",
+                  "admin/sessions/" + x.id,
+                  undefined,
+                  "Deleted " + x.name + ".",
+                  redo,
+                );
               },
             );
           },
-          !qs,
+          x.questionCount === 0,
           "Questions use this session. Move or delete them first.",
         ),
       );

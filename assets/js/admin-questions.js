@@ -1,47 +1,33 @@
 /* Past questions: list, search/filter, details, add/edit, publish, feature, delete.
-   Upload UI accepts one PDF or several images. Converting images into ONE PDF is the backend's job. */
+   Searching and paging happen on the server. A PDF or several images are uploaded with the form;
+   the server combines images into ONE PDF and reports back when it is done. */
 (function () {
   var A = OGAAdmin,
     h = A.h,
     V = OGAValidate;
   var PAGE = 20,
-    limit = PAGE,
-    flt = { q: "", dept: "", status: "", prog: "", session: "", year: "" },
+    flt = {
+      q: "",
+      department: "",
+      status: "",
+      programme: "",
+      session: "",
+      year: "",
+    },
     filtersOpen = false;
-  /* Frontend limits; the backend must enforce its own. */
+  /* Frontend limits (the server enforces its own, from api/config.php). Keep them in step. */
   var PDF_MAX = 20 * 1048576,
     IMG_MAX = 8 * 1048576,
     IMG_COUNT = 30,
     IMG_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
-  function norm(s) {
-    return String(s || "")
-      .toLowerCase()
-      .replace(/\s+/g, " ")
-      .trim();
+  function S() {
+    return A.structure;
   }
-  function compact(s) {
-    return String(s || "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "");
-  }
-  function nextId(qs) {
-    var n = 0;
-    qs.forEach(function (x) {
-      var m = /^q(\d+)$/.exec(x.id);
-      if (m) n = Math.max(n, +m[1]);
-    });
-    return "q" + String(n + 1).padStart(3, "0");
-  }
-  function find(state, id) {
-    return state.questions.filter(function (y) {
-      return y.id === id;
-    })[0];
-  }
-  function docLabel(d) {
-    if (!d) return "No document";
-    return d.source === "images"
-      ? "PDF from " + d.pageCount + " images"
+  function docLabel(x) {
+    if (!x.document) return "No document";
+    return x.document.source === "images"
+      ? "PDF from " + x.document.pages + " images"
       : "PDF attached";
   }
 
@@ -52,11 +38,17 @@
       var p = A.pending;
       A.pending = null;
       if (p && p.add) return form(root, null, p.add);
-      list(root);
-      if (p && p.view) {
-        var x = OGA.getQuestion(p.view);
-        if (x) details(x);
-      }
+      var first = list(root);
+      if (p && p.view)
+        return first.then(function () {
+          return A.api("GET", "admin/questions/" + p.view).then(
+            function (r) {
+              details(r.data);
+            },
+            function () {},
+          );
+        });
+      return first;
     },
     { icon: "fa-file-lines" },
   );
@@ -64,24 +56,31 @@
   /* ---------- List ---------- */
   function list(root) {
     A.clear(root);
-    limit = PAGE;
-    var s = OGA.get();
+    var rows = [],
+      total = 0,
+      page = 1,
+      ticket = 0,
+      timer = null;
     root.appendChild(
       A.title(
         "Past questions",
         "Upload, publish and manage examination questions.",
         [
           A.btn("Upload question", "fa-cloud-arrow-up", "primary", function () {
-            form(root, null);
+            open(form(root, null));
           }),
         ],
       ),
     );
+    function open(p) {
+      p.then(null, A.handleError);
+    }
 
-    var years = {};
-    s.questions.forEach(function (x) {
-      years[x.examYear] = 1;
-    });
+    var st = S(),
+      yearNow = new Date().getFullYear(),
+      years = [];
+    for (var y = yearNow; y >= st.yearMin; y--)
+      years.push([String(y), String(y)]);
     var f = {
       q: A.field({
         id: "fq",
@@ -91,14 +90,14 @@
         maxlength: 80,
         noSuffix: true,
       }),
-      dept: A.field({
+      department: A.field({
         id: "fd",
         label: "Department",
         type: "select",
-        value: flt.dept,
+        value: flt.department,
         noSuffix: true,
         options: [["", "All departments"]].concat(
-          s.departments.map(function (d) {
+          st.departments.map(function (d) {
             return [d.id, d.name];
           }),
         ),
@@ -116,15 +115,15 @@
           ["featured", "Featured"],
         ],
       }),
-      prog: A.field({
+      programme: A.field({
         id: "fp",
         label: "Programme",
         type: "select",
-        value: flt.prog,
+        value: flt.programme,
         noSuffix: true,
         options: [["", "All programmes"]].concat(
-          s.options.programmes.map(function (p) {
-            return [p, p];
+          st.programmes.map(function (p) {
+            return [p.id, p.name];
           }),
         ),
       }),
@@ -135,7 +134,7 @@
         value: flt.session,
         noSuffix: true,
         options: [["", "All sessions"]].concat(
-          OGA.getSessions().map(function (x) {
+          st.sessions.map(function (x) {
             return [x.id, x.name];
           }),
         ),
@@ -146,14 +145,7 @@
         type: "select",
         value: flt.year,
         noSuffix: true,
-        options: [["", "All years"]].concat(
-          Object.keys(years)
-            .sort()
-            .reverse()
-            .map(function (y) {
-              return [y, y];
-            }),
-        ),
+        options: [["", "All years"]].concat(years),
       }),
     };
     f.q.wrap.querySelector("label").className = "sr";
@@ -165,27 +157,27 @@
       "aria-controls": "filters",
     });
     var panel = h("div", { class: "filters", id: "filters" }, [
-      f.dept.wrap,
+      f.department.wrap,
       f.status.wrap,
-      f.prog.wrap,
+      f.programme.wrap,
       f.session.wrap,
       f.year.wrap,
       h("div", { class: "field end" }, [
         A.btn("Clear filters", "fa-rotate-left", "ghost", function () {
           flt = {
             q: "",
-            dept: "",
+            department: "",
             status: "",
-            prog: "",
+            programme: "",
             session: "",
             year: "",
           };
-          list(root);
+          open(list(root));
         }),
       ]),
     ]);
     function syncFilterBtn() {
-      var n = ["dept", "status", "prog", "session", "year"].filter(
+      var n = ["department", "status", "programme", "session", "year"].filter(
         function (k) {
           return flt[k];
         },
@@ -218,59 +210,86 @@
     root.appendChild(box);
     root.appendChild(more);
 
-    function matches(x) {
-      if (flt.dept && x.departmentId !== flt.dept) return false;
-      if (flt.prog && x.programme !== flt.prog) return false;
-      if (flt.session && x.sessionId !== flt.session) return false;
-      if (flt.year && String(x.examYear) !== flt.year) return false;
-      if (flt.status === "published" && !x.published) return false;
-      if (flt.status === "draft" && x.published) return false;
-      if (flt.status === "featured" && !x.featured) return false;
-      if (!flt.q) return true;
-      var text = [
-        x.courseCode,
-        x.courseTitle,
-        A.deptName(x.departmentId),
-        x.programme,
-        x.level,
-        x.semester,
-        x.examYear,
-        OGA.sessionName(x),
-        x.notes,
-      ].join(" ");
-      var low = norm(text);
-      return (
-        norm(flt.q)
-          .split(" ")
-          .every(function (t) {
-            return low.indexOf(t) !== -1;
-          }) ||
-        (compact(flt.q) && compact(text).indexOf(compact(flt.q)) !== -1)
+    function readFilters() {
+      flt.q = f.q.get();
+      ["department", "status", "programme", "session", "year"].forEach(
+        function (k) {
+          flt[k] = f[k].get();
+        },
+      );
+      syncFilterBtn();
+    }
+
+    /* Ask the server for a page. reset = start again from page 1. */
+    function fetchPage(reset) {
+      var mine = ++ticket;
+      if (reset) page = 1;
+      if (reset) {
+        A.clear(box);
+        box.appendChild(
+          h("p", { class: "loading", role: "status" }, [
+            A.spinner(),
+            " Loading…",
+          ]),
+        );
+      }
+      more.hidden = true;
+      return A.api("GET", "admin/questions", {
+        query: {
+          q: flt.q,
+          department: flt.department,
+          status: flt.status,
+          programme: flt.programme,
+          session: flt.session,
+          year: flt.year,
+          page: page,
+          perPage: PAGE,
+        },
+      }).then(
+        function (res) {
+          if (mine !== ticket) return;
+          rows = reset ? res.data : rows.concat(res.data);
+          total = res.meta.total;
+          paint();
+        },
+        function (err) {
+          if (mine !== ticket) return;
+          A.clear(box);
+          A.clear(count);
+          box.appendChild(
+            A.empty(
+              "fa-triangle-exclamation",
+              "Questions could not be loaded",
+              err.message,
+              A.btn("Try again", "fa-rotate-right", "ghost", function () {
+                fetchPage(true);
+              }),
+            ),
+          );
+          if (err.status === 401) return;
+        },
       );
     }
 
     function paint() {
-      flt.q = f.q.get();
-      ["dept", "status", "prog", "session", "year"].forEach(function (k) {
-        flt[k] = f[k].get();
-      });
-      syncFilterBtn();
       A.clear(box);
       A.clear(more);
-      var rows = OGA.getQuestions(true)
-        .filter(matches)
-        .sort(function (a, b) {
-          return b.updatedAt.localeCompare(a.updatedAt);
-        });
-      var total = OGA.get().questions.length;
+      more.hidden = false;
       count.textContent =
         rows.length +
         " of " +
         total +
         (total === 1 ? " question" : " questions");
       if (!rows.length) {
+        var filtered =
+          flt.q ||
+          flt.department ||
+          flt.status ||
+          flt.programme ||
+          flt.session ||
+          flt.year;
         box.appendChild(
-          total
+          filtered
             ? A.empty(
                 "fa-magnifying-glass",
                 "No questions match",
@@ -285,7 +304,7 @@
                   "fa-cloud-arrow-up",
                   "primary",
                   function () {
-                    form(root, null);
+                    open(form(root, null));
                   },
                 ),
               ),
@@ -299,18 +318,18 @@
           h("span", { text: "Actions" }),
         ]),
       );
-      rows.slice(0, limit).forEach(function (x) {
+      rows.forEach(function (x) {
         box.appendChild(item(x));
       });
-      if (rows.length > limit)
+      if (rows.length < total)
         more.appendChild(
           A.btn(
-            "Show more (" + (rows.length - limit) + " left)",
+            "Show more (" + (total - rows.length) + " left)",
             "fa-chevron-down",
             "ghost",
             function () {
-              limit += PAGE;
-              paint();
+              page += 1;
+              fetchPage(false);
             },
           ),
         );
@@ -323,7 +342,7 @@
           x.published ? "ok" : "warn",
         ),
         x.featured ? A.pill("Featured", "gold") : null,
-        A.pill(docLabel(x.document || (x.fileUrl ? { source: "pdf" } : null))),
+        A.pill(docLabel(x)),
       ]);
       var acts = h("div", { class: "q-actions" }, [
         A.btn(
@@ -340,7 +359,7 @@
           "fa-pen-to-square",
           "subtle",
           function () {
-            form(root, x.id);
+            open(form(root, x.id));
           },
           "Edit " + x.courseCode,
         ),
@@ -358,7 +377,12 @@
           "fa-star",
           "subtle" + (x.featured ? " on" : ""),
           function () {
-            toggle(x, "featured", x.featured ? "Unfeatured" : "Featured");
+            flag(
+              x,
+              "feature",
+              !x.featured,
+              x.featured ? "Unfeatured" : "Featured",
+            );
           },
           (x.featured ? "Unfeature " : "Feature ") + x.courseCode,
         ),
@@ -378,10 +402,10 @@
           h("span", {
             class: "muted",
             text: [
-              A.deptName(x.departmentId),
+              x.department,
               x.level,
               x.semester + " semester",
-              "Session " + (OGA.sessionName(x) || "—"),
+              "Session " + (x.session || "—"),
               "Exam " + x.examYear,
             ].join(" · "),
           }),
@@ -391,24 +415,27 @@
       ]);
     }
 
-    function toggle(x, key, msg) {
-      if (
-        A.commit(function (n) {
-          var t = find(n, x.id);
-          if (!t) return "That question no longer exists.";
-          t[key] = !t[key];
-          t.updatedAt = new Date().toISOString();
-        })
-      ) {
+    function flag(x, what, value, msg) {
+      A.api("POST", "admin/questions/" + x.id + "/" + what, {
+        json: { value: value },
+      }).then(function (res) {
+        rows = rows.map(function (r) {
+          return r.id === x.id ? res.data : r;
+        });
         A.notify(msg + ": " + x.courseCode + ".");
         paint();
-      }
+      }, A.handleError);
     }
     function togglePublish(x) {
       var go = function () {
-        toggle(x, "published", x.published ? "Unpublished" : "Published");
+        flag(
+          x,
+          "publish",
+          !x.published,
+          x.published ? "Unpublished" : "Published",
+        );
       };
-      if (!x.published && !x.document && !x.fileUrl)
+      if (!x.published && !x.document)
         return A.confirm(
           "Publish without a document?",
           "Students will see this question but cannot download anything until a PDF is attached.",
@@ -421,65 +448,81 @@
     function remove(x) {
       A.confirm(
         "Delete " + x.courseCode + "?",
-        "This permanently removes the question. Unpublishing hides it from students without deleting it.",
+        "This permanently removes the question and its document. Unpublishing hides it from students without deleting it.",
         "Delete question",
         function () {
-          if (
-            A.commit(function (n) {
-              n.questions = n.questions.filter(function (y) {
-                return y.id !== x.id;
-              });
-            })
-          ) {
+          A.api("DELETE", "admin/questions/" + x.id).then(function () {
+            rows = rows.filter(function (r) {
+              return r.id !== x.id;
+            });
+            total = Math.max(0, total - 1);
             A.notify("Deleted " + x.courseCode + ".");
             paint();
-          }
+          }, A.handleError);
         },
       );
     }
 
-    ["input", "change"].forEach(function (ev) {
-      [f.q, f.dept, f.status, f.prog, f.session, f.year].forEach(function (c) {
-        c.input.addEventListener(ev, function () {
-          limit = PAGE;
-          paint();
-        });
-      });
+    f.q.input.addEventListener("input", function () {
+      clearTimeout(timer);
+      timer = setTimeout(function () {
+        readFilters();
+        fetchPage(true);
+      }, 300);
     });
-    paint();
+    ["department", "status", "programme", "session", "year"].forEach(
+      function (k) {
+        f[k].input.addEventListener("change", function () {
+          readFilters();
+          fetchPage(true);
+        });
+      },
+    );
+    syncFilterBtn();
+    return fetchPage(true);
   }
 
   /* ---------- Details ---------- */
   function details(x) {
     var d = x.document;
-    A.dialog(
-      x.courseCode + " – " + x.courseTitle,
+    var node = h("div", {}, [
       A.dl([
-        ["Department", A.deptName(x.departmentId)],
+        ["Department", x.department],
         ["Programme", x.programme],
         ["Level", x.level],
         ["Semester", x.semester],
-        ["Academic session", OGA.sessionName(x)],
+        ["Academic session", x.session],
         ["Examination year", x.examYear],
         ["Notes", x.notes],
         [
           "Document",
           d
-            ? d.name +
-              (d.source === "images"
-                ? " (" + d.pageCount + " pages from images)"
-                : "")
-            : x.fileUrl
-              ? x.fileUrl
-              : "None attached",
+            ? (d.source === "images"
+                ? "PDF made from " + d.pages + " images"
+                : "PDF" + (d.originalName ? " (" + d.originalName + ")" : "")) +
+              ", " +
+              A.fileSize(d.size)
+            : "None attached",
         ],
         ["Status", x.published ? "Published" : "Draft (hidden from students)"],
         ["Featured", x.featured ? "Yes" : "No"],
+        ["Views / downloads", x.views + " / " + x.downloads],
         ["Added", A.fmtDate(x.createdAt)],
         ["Last updated", A.fmtDate(x.updatedAt)],
         ["Record ID", x.id],
       ]),
-    );
+      d
+        ? h("p", {}, [
+            h("a", {
+              href: A.fileUrl(x.id),
+              target: "_blank",
+              rel: "noopener",
+              text: "Open the document in a new tab",
+            }),
+          ])
+        : null,
+    ]);
+    A.dialog(x.courseCode + " – " + x.courseTitle, node);
   }
 
   /* ---------- Document picker (PDF or images) ---------- */
@@ -723,10 +766,12 @@
         h("p", { class: "current" }, [
           h("i", { class: "fa-solid fa-paperclip", "aria-hidden": "true" }),
           " Current document: " +
-            existing.name +
             (existing.source === "images"
-              ? " (" + existing.pageCount + " pages)"
-              : "") +
+              ? "PDF made from " + existing.pages + " images"
+              : "PDF" +
+                (existing.originalName
+                  ? " (" + existing.originalName + ")"
+                  : "")) +
             ". Choosing a new file replaces it.",
         ]),
       );
@@ -743,32 +788,24 @@
       pdfPanel,
       imgPanel,
       prog.el,
-      h("p", { class: "note" }, [
-        h("i", { class: "fa-solid fa-flask", "aria-hidden": "true" }),
-        " Prototype: files are checked and previewed here but are not stored until the backend is connected.",
-      ]),
     );
     return {
       el: h("div", { class: "docbox" }, kids),
       prog: prog,
+      /* The new file(s) chosen in the active mode, or null. */
       pending: function () {
-        if (st.mode === "pdf" && st.pdf)
-          return {
-            source: "pdf",
-            name: st.pdf.name,
-            pageCount: null,
-            size: st.pdf.size,
-          };
+        if (st.mode === "pdf" && st.pdf) return { mode: "pdf", file: st.pdf };
         if (st.mode === "images" && st.images.length)
           return {
-            source: "images",
-            name: "",
-            pageCount: st.images.length,
-            size: st.images.reduce(function (t, o) {
-              return t + o.file.size;
-            }, 0),
+            mode: "images",
+            files: st.images.map(function (o) {
+              return o.file;
+            }),
           };
         return null;
+      },
+      showError: function (m) {
+        (st.mode === "pdf" ? pdfErr : imgErr).textContent = m;
       },
       cleanup: function () {
         urls.forEach(function (u) {
@@ -779,39 +816,75 @@
     };
   }
 
+  /* Turn a student request into form defaults (names -> ids). */
+  function fromRequest(r) {
+    var st = S(),
+      prog = st.programmes.filter(function (p) {
+        return p.name === r.programme;
+      })[0],
+      level =
+        prog &&
+        prog.levels.filter(function (l) {
+          return l.name === r.level;
+        })[0],
+      sem = st.semesters.filter(function (s) {
+        return s.name === r.semester;
+      })[0];
+    return {
+      requestId: r.id,
+      departmentId: r.departmentId || "",
+      programmeId: prog ? prog.id : "",
+      levelId: level ? level.id : "",
+      semesterId: sem ? sem.id : "",
+      courseCode: r.courseCode,
+      courseTitle: r.courseTitle,
+      examYear: r.examYear || "",
+    };
+  }
+
   /* ---------- Add / edit form ---------- */
   function form(root, id, prefill) {
+    if (!id)
+      return Promise.resolve(
+        buildForm(
+          root,
+          null,
+          prefill && prefill.request ? fromRequest(prefill.request) : prefill,
+        ),
+      );
+    return A.api("GET", "admin/questions/" + id).then(function (res) {
+      buildForm(root, res.data, null);
+    });
+  }
+
+  function buildForm(root, ex, prefill) {
     A.clear(root);
-    var s = OGA.get(),
-      o = s.options,
-      ex = id ? OGA.getQuestion(id) : null;
-    if (id && !ex) {
-      A.notify("That question no longer exists.", "error");
-      return list(root);
-    }
-    var cur = Object.assign(
-      {
-        departmentId: "",
-        programme: "",
-        level: "",
-        semester: "",
-        courseCode: "",
-        courseTitle: "",
-        examYear: "",
-        sessionId: "",
-        notes: "",
-        featured: false,
-        published: true,
-      },
-      prefill || {},
-      ex || {},
-    );
+    var st = S(),
+      cur = Object.assign(
+        {
+          departmentId: "",
+          programmeId: "",
+          levelId: "",
+          semesterId: "",
+          courseCode: "",
+          courseTitle: "",
+          examYear: "",
+          sessionId: "",
+          notes: "",
+          featured: false,
+          published: true,
+        },
+        prefill || {},
+        ex || {},
+      );
     var year = new Date().getFullYear();
     var doc = docBox(ex && ex.document);
+    var saving = false;
 
     function leave() {
       doc.cleanup();
-      list(root);
+      var p = list(root);
+      p.then(null, A.handleError);
     }
     root.appendChild(
       A.title(
@@ -825,6 +898,21 @@
       ),
     );
 
+    function deptById(id) {
+      return st.departments.filter(function (d) {
+        return String(d.id) === String(id);
+      })[0];
+    }
+    function progOptions(deptId) {
+      var d = deptById(deptId);
+      return st.programmes
+        .filter(function (p) {
+          return !d || d.programmeIds.indexOf(p.id) !== -1;
+        })
+        .map(function (p) {
+          return [p.id, p.name];
+        });
+    }
     var f = {
       departmentId: A.field({
         id: "qd",
@@ -833,24 +921,20 @@
         value: cur.departmentId,
         required: true,
         options: [["", "Select department"]].concat(
-          s.departments.map(function (x) {
+          st.departments.map(function (x) {
             return [x.id, x.name];
           }),
         ),
       }),
-      programme: A.field({
+      programmeId: A.field({
         id: "qp",
         label: "Programme",
         type: "select",
-        value: cur.programme,
+        value: "",
         required: true,
-        options: [["", "Select programme"]].concat(
-          o.programmes.map(function (x) {
-            return [x, x];
-          }),
-        ),
+        options: [["", "Select programme"]],
       }),
-      level: A.field({
+      levelId: A.field({
         id: "ql",
         label: "Level",
         type: "select",
@@ -858,15 +942,15 @@
         required: true,
         options: [["", "Select level"]],
       }),
-      semester: A.field({
+      semesterId: A.field({
         id: "qs",
         label: "Semester",
         type: "select",
-        value: cur.semester,
+        value: cur.semesterId,
         required: true,
         options: [["", "Select semester"]].concat(
-          o.semesters.map(function (x) {
-            return [x, x];
+          st.semesters.map(function (x) {
+            return [x.id, x.name];
           }),
         ),
       }),
@@ -892,7 +976,7 @@
         required: true,
         hint: "The school session, for example 2025/2026.",
         options: [["", "Select session"]].concat(
-          OGA.getSessions().map(function (x) {
+          st.sessions.map(function (x) {
             return [x.id, x.name];
           }),
         ),
@@ -927,31 +1011,50 @@
         value: cur.featured,
       }),
     };
-    function levels() {
-      var keep = f.level.input.value,
-        L = o.levels[f.programme.input.value] || [],
-        sel = f.level.input;
+    function fillSelect(sel, placeholder, items, keep) {
       A.clear(sel);
-      sel.appendChild(
-        h("option", {
-          value: "",
-          text: f.programme.input.value
-            ? "Select level"
-            : "Choose a programme first",
-        }),
-      );
-      L.forEach(function (l) {
-        sel.appendChild(h("option", { value: l, text: l }));
+      sel.appendChild(h("option", { value: "", text: placeholder }));
+      items.forEach(function (i) {
+        sel.appendChild(h("option", { value: String(i[0]), text: i[1] }));
       });
-      sel.value = L.indexOf(keep) !== -1 ? keep : "";
-    }
-    f.level.input.value = cur.level;
-    f.programme.input.addEventListener("change", levels);
-    levels();
-    f.level.input.value =
-      (o.levels[cur.programme] || []).indexOf(cur.level) !== -1
-        ? cur.level
+      sel.value = items.some(function (i) {
+        return String(i[0]) === String(keep);
+      })
+        ? String(keep)
         : "";
+    }
+    function fillLevels(keep) {
+      var p = st.programmes.filter(function (x) {
+        return String(x.id) === f.programmeId.input.value;
+      })[0];
+      fillSelect(
+        f.levelId.input,
+        p ? "Select level" : "Choose a programme first",
+        p
+          ? p.levels.map(function (l) {
+              return [l.id, l.name];
+            })
+          : [],
+        keep,
+      );
+    }
+    function fillProgrammes(keepProg, keepLevel) {
+      fillSelect(
+        f.programmeId.input,
+        "Select programme",
+        progOptions(f.departmentId.input.value),
+        keepProg,
+      );
+      fillLevels(keepLevel);
+    }
+    /* Only programmes the chosen department offers can be picked; levels follow the programme. */
+    fillProgrammes(cur.programmeId, cur.levelId);
+    f.departmentId.input.addEventListener("change", function () {
+      fillProgrammes(f.programmeId.input.value, f.levelId.input.value);
+    });
+    f.programmeId.input.addEventListener("change", function () {
+      fillLevels(f.levelId.input.value);
+    });
 
     var fm = h("form", { class: "qform", novalidate: "" });
     fm.appendChild(
@@ -961,9 +1064,9 @@
           { class: "formgrid" },
           [
             "departmentId",
-            "programme",
-            "level",
-            "semester",
+            "programmeId",
+            "levelId",
+            "semesterId",
             "courseCode",
             "courseTitle",
             "sessionId",
@@ -990,23 +1093,20 @@
 
     fm.addEventListener("submit", function (e) {
       e.preventDefault();
+      if (saving) return;
       var v = {};
       Object.keys(f).forEach(function (k) {
         v[k] = f[k].get();
       });
       var er = {};
-      er.departmentId = V.choice(
-        v.departmentId,
-        s.departments.map(function (x) {
-          return x.id;
-        }),
-        "department",
-      );
-      er.programme = V.choice(v.programme, o.programmes, "programme");
-      er.level = v.programme
-        ? V.choice(v.level, o.levels[v.programme] || [], "level")
-        : "Choose a programme first.";
-      er.semester = V.choice(v.semester, o.semesters, "semester");
+      er.departmentId = v.departmentId ? "" : "Choose a department.";
+      er.programmeId = v.programmeId ? "" : "Choose a programme.";
+      er.levelId = v.levelId
+        ? ""
+        : v.programmeId
+          ? "Choose a level."
+          : "Choose a programme first.";
+      er.semesterId = v.semesterId ? "" : "Choose a semester.";
       er.courseCode = V.code(v.courseCode);
       er.courseTitle = V.text(v.courseTitle, {
         label: "Course title",
@@ -1014,44 +1114,11 @@
         min: 3,
         max: 120,
       });
-      er.sessionId = V.choice(
-        v.sessionId,
-        s.sessions.map(function (x) {
-          return x.id;
-        }),
-        "academic session",
-      );
+      er.sessionId = v.sessionId ? "" : "Choose an academic session.";
       er.examYear = !v.examYear
         ? "Examination year is required."
-        : V.year(v.examYear, o.yearMin, year);
+        : V.year(v.examYear, st.yearMin, year);
       er.notes = V.text(v.notes, { label: "Notes", max: 300 });
-      if (!er.courseCode && !er.examYear && !er.departmentId) {
-        var key = [
-          v.departmentId,
-          v.programme,
-          v.level,
-          v.semester,
-          norm(v.courseCode),
-          v.examYear,
-        ].join("|");
-        if (
-          OGA.getQuestions(true).some(function (x) {
-            return (
-              x.id !== (ex && ex.id) &&
-              [
-                x.departmentId,
-                x.programme,
-                x.level,
-                x.semester,
-                norm(x.courseCode),
-                String(x.examYear),
-              ].join("|") === key
-            );
-          })
-        )
-          er.courseCode =
-            "This question already exists for the same department, level, semester and year.";
-      }
       Object.keys(er).forEach(function (k) {
         if (!er[k]) delete er[k];
       });
@@ -1060,13 +1127,10 @@
         return;
       }
       var fresh = doc.pending();
-      if (fresh && fresh.source === "images")
-        fresh.name = A.slug(v.courseCode) + "-" + v.examYear + ".pdf";
-      var record = fresh || (ex && ex.document) || null;
       var go = function () {
-        finish(v, record, fresh);
+        send(v, fresh);
       };
-      if (v.published && !record && !(ex && ex.fileUrl))
+      if (v.published && !fresh && !(ex && ex.document))
         return A.confirm(
           "Publish without a document?",
           "Students will see this question but cannot download anything until a PDF is attached.",
@@ -1077,71 +1141,76 @@
       go();
     });
 
-    function finish(v, record, fresh) {
+    function send(v, fresh) {
+      var fd = new FormData();
+      [
+        "departmentId",
+        "programmeId",
+        "levelId",
+        "semesterId",
+        "sessionId",
+        "courseCode",
+        "courseTitle",
+        "examYear",
+        "notes",
+      ].forEach(function (k) {
+        fd.append(k, v[k]);
+      });
+      fd.append("published", v.published ? "1" : "0");
+      fd.append("featured", v.featured ? "1" : "0");
+      if (!ex && prefill && prefill.requestId)
+        fd.append("requestId", String(prefill.requestId));
+      if (fresh && fresh.mode === "pdf")
+        fd.append("pdf", fresh.file, fresh.file.name);
+      if (fresh && fresh.mode === "images") {
+        fresh.files.forEach(function (file) {
+          fd.append("images[]", file, file.name);
+        });
+        fd.append("imageCount", String(fresh.files.length));
+      }
+      saving = true;
       A.busy(save, true, "Saving…");
-      /* Backend: send a multipart request here. Drive doc.prog.set(percent, text) from upload progress,
-         then from conversion status ("Converting images to one PDF…"). */
-      if (fresh)
-        doc.prog.set(
-          null,
-          "Saving question (prototype: the file is not uploaded)…",
-        );
-      setTimeout(
-        function () {
-          var now = new Date().toISOString(),
-            savedId = ex ? ex.id : null;
-          var ok = A.commit(function (n) {
-            var base = {
-              departmentId: v.departmentId,
-              programme: v.programme,
-              level: v.level,
-              semester: v.semester,
-              courseCode: v.courseCode,
-              courseTitle: v.courseTitle,
-              sessionId: v.sessionId,
-              examYear: +v.examYear,
-              notes: v.notes,
-              document: record,
-              published: v.published,
-              featured: v.featured,
-              updatedAt: now,
-            };
-            if (ex) {
-              var t = find(n, ex.id);
-              if (!t)
-                return "That question no longer exists. Nothing was saved.";
-              Object.assign(t, base);
-            } else {
-              savedId = nextId(n.questions);
-              n.questions.push(
-                Object.assign(
-                  { id: savedId, fileUrl: "", demoViews: 0, createdAt: now },
-                  base,
-                ),
-              );
+      if (fresh) doc.prog.set(0, "Uploading… 0%");
+      A.api("POST", "admin/questions" + (ex ? "/" + ex.id : ""), {
+        form: fd,
+        onUpload: fresh
+          ? function (pct) {
+              if (pct < 100) doc.prog.set(pct, "Uploading… " + pct + "%");
+              else
+                doc.prog.set(
+                  null,
+                  fresh.mode === "images"
+                    ? "Combining " +
+                        fresh.files.length +
+                        " images into one PDF…"
+                    : "Checking and saving the PDF…",
+                );
             }
-            if (prefill && prefill.requestId) {
-              var r = n.requests.filter(function (x) {
-                return x.id === prefill.requestId;
-              })[0];
-              if (r) r.status = "resolved";
-            }
-          });
+          : null,
+      }).then(
+        function (res) {
+          saving = false;
           A.busy(save, false);
           doc.prog.hide();
-          if (ok) {
-            A.notify(
-              (ex ? "Saved " : "Added ") +
-                v.courseCode +
-                (v.published ? "." : " as a draft."),
-            );
-            leave();
-          }
+          A.notify(
+            (ex ? "Saved " : "Added ") +
+              res.data.courseCode +
+              (res.data.published ? "." : " as a draft."),
+          );
+          if (!ex && prefill && prefill.requestId)
+            A.badges.requests = Math.max(0, A.badges.requests - 1);
+          leave();
         },
-        fresh ? 700 : 0,
+        function (err) {
+          saving = false;
+          A.busy(save, false);
+          doc.prog.hide();
+          if (err.fields && (err.fields.pdf || err.fields.images))
+            doc.showError(err.fields.pdf || err.fields.images);
+          A.handleError(err, f);
+        },
       );
     }
     root.appendChild(fm);
-    f.departmentId.input.focus();
   }
 })();

@@ -1,4 +1,5 @@
-/* Departments (Main Admin only). Questions are never left without a department. */
+/* Departments (Main Admin only). Every change is saved through the API, which also enforces the rules
+   (no orphaned questions, unique names, programmes with questions cannot be removed). */
 (function () {
   var A = OGAAdmin,
     h = A.h,
@@ -8,17 +9,40 @@
     "departments",
     "Departments",
     function (root) {
-      list(root);
+      return A.loadStructure().then(function () {
+        list(root);
+      });
     },
     { icon: "fa-building", roles: ["main"], group: "admin" },
   );
 
-  function counts() {
-    var c = {};
-    OGA.getQuestions(true).forEach(function (q) {
-      c[q.departmentId] = (c[q.departmentId] || 0) + 1;
-    });
-    return c;
+  function S() {
+    return A.structure;
+  }
+  function progNames(d) {
+    return S()
+      .programmes.filter(function (p) {
+        return d.programmeIds.indexOf(p.id) !== -1;
+      })
+      .map(function (p) {
+        return p.name;
+      });
+  }
+  function bodyOf(d, changes) {
+    return Object.assign(
+      {
+        name: d.name,
+        description: d.description,
+        programmeIds: d.programmeIds,
+        visible: d.visible,
+      },
+      changes,
+    );
+  }
+  function saved(res, root, msg) {
+    A.setStructure(res);
+    if (msg) A.notify(msg);
+    list(root);
   }
 
   function list(root) {
@@ -34,8 +58,7 @@
         ],
       ),
     );
-    var deps = OGA.getDepartments(true),
-      c = counts();
+    var deps = S().departments;
     if (!deps.length) {
       root.appendChild(
         A.empty(
@@ -52,23 +75,19 @@
     var box = h("div", { class: "qlist" });
     deps.forEach(function (d, i) {
       function move(dir) {
-        if (
-          A.commit(function (n) {
-            var arr = n.departments.slice().sort(function (a, b) {
-                return a.order - b.order;
-              }),
-              j = i + dir;
-            if (j < 0 || j >= arr.length) return "Cannot move further.";
-            var t = arr[i];
-            arr[i] = arr[j];
-            arr[j] = t;
-            arr.forEach(function (x, k) {
-              x.order = k + 1;
-            });
-            n.departments = arr;
-          })
-        )
-          list(root);
+        var ids = deps.map(function (x) {
+            return x.id;
+          }),
+          j = i + dir,
+          t = ids[i];
+        ids[i] = ids[j];
+        ids[j] = t;
+        A.api("POST", "admin/departments/reorder", { json: { ids: ids } }).then(
+          function (res) {
+            saved(res, root);
+          },
+          A.handleError,
+        );
       }
       var up = A.btn(
           "",
@@ -102,10 +121,10 @@
               class: "muted",
               text:
                 "Programmes: " +
-                (d.programmes.join(", ") || "none") +
+                (progNames(d).join(", ") || "none") +
                 " · " +
-                (c[d.id] || 0) +
-                (c[d.id] === 1 ? " question" : " questions"),
+                d.questionCount +
+                (d.questionCount === 1 ? " question" : " questions"),
             }),
           ]),
           h("div", { class: "q-tags" }, [
@@ -119,18 +138,15 @@
               d.visible ? "fa-eye-slash" : "fa-eye",
               "subtle",
               function () {
-                if (
-                  A.commit(function (n) {
-                    var t = n.departments.filter(function (x) {
-                      return x.id === d.id;
-                    })[0];
-                    if (!t) return "Department not found.";
-                    t.visible = !t.visible;
-                  })
-                ) {
-                  A.notify((d.visible ? "Hidden: " : "Shown: ") + d.name + ".");
-                  list(root);
-                }
+                A.api("PUT", "admin/departments/" + d.id, {
+                  json: bodyOf(d, { visible: !d.visible }),
+                }).then(function (res) {
+                  saved(
+                    res,
+                    root,
+                    (d.visible ? "Hidden: " : "Shown: ") + d.name + ".",
+                  );
+                }, A.handleError);
               },
               (d.visible ? "Hide " : "Show ") + d.name,
             ),
@@ -160,39 +176,22 @@
   }
 
   function del(root, d) {
-    var n = counts()[d.id] || 0,
-      others = OGA.getDepartments(true).filter(function (x) {
+    var n = d.questionCount,
+      others = S().departments.filter(function (x) {
         return x.id !== d.id;
       });
     function remove(moveTo) {
-      if (
-        A.commit(function (s) {
-          if (moveTo) {
-            if (
-              !s.departments.some(function (x) {
-                return x.id === moveTo;
-              })
-            )
-              return "The chosen department no longer exists.";
-            s.questions.forEach(function (q) {
-              if (q.departmentId === d.id) {
-                q.departmentId = moveTo;
-                q.updatedAt = new Date().toISOString();
-              }
-            });
-          }
-          s.departments = s.departments.filter(function (x) {
-            return x.id !== d.id;
-          });
-        })
-      ) {
-        A.notify(
+      A.api("DELETE", "admin/departments/" + d.id, {
+        query: moveTo ? { moveTo: moveTo } : null,
+      }).then(function (res) {
+        saved(
+          res,
+          root,
           moveTo
             ? "Moved " + n + " question(s) and deleted " + d.name + "."
             : "Deleted " + d.name + ".",
         );
-        list(root);
-      }
+      }, A.handleError);
     }
     if (!n)
       return A.confirm(
@@ -214,7 +213,7 @@
       class: "swal-select",
     });
     others.forEach(function (x) {
-      sel.appendChild(h("option", { value: x.id, text: x.name }));
+      sel.appendChild(h("option", { value: String(x.id), text: x.name }));
     });
     A.dialog(
       "Move questions before deleting",
@@ -242,12 +241,17 @@
 
   function form(root, id) {
     A.clear(root);
-    var s = OGA.get(),
-      ex = id ? OGA.getDepartment(id) : null;
+    var ex = id
+      ? S().departments.filter(function (d) {
+          return d.id === id;
+        })[0]
+      : null;
     var cur = ex || {
       name: "",
       description: "",
-      programmes: s.options.programmes.slice(),
+      programmeIds: S().programmes.map(function (p) {
+        return p.id;
+      }),
       visible: true,
     };
     function leave() {
@@ -285,14 +289,14 @@
         h("legend", { text: "Programmes offered" }),
       ]),
       perr = h("p", { class: "err", role: "alert" });
-    s.options.programmes.forEach(function (p) {
-      progs[p] = A.field({
-        id: "dp-" + p,
-        label: p,
+    S().programmes.forEach(function (p) {
+      progs[p.id] = A.field({
+        id: "dp-" + p.id,
+        label: p.name,
         type: "checkbox",
-        value: cur.programmes.indexOf(p) !== -1,
+        value: cur.programmeIds.indexOf(p.id) !== -1,
       });
-      pg.appendChild(progs[p].wrap);
+      pg.appendChild(progs[p.id].wrap);
     });
     pg.appendChild(perr);
     var save = h("button", { type: "submit", class: "btn primary" }, [
@@ -310,94 +314,56 @@
       e.preventDefault();
       var name = f.name.get().replace(/\s+/g, " "),
         er = {},
-        chosen = s.options.programmes.filter(function (p) {
-          return progs[p].get();
-        });
+        chosen = S()
+          .programmes.filter(function (p) {
+            return progs[p.id].get();
+          })
+          .map(function (p) {
+            return p.id;
+          });
       er.name = V.text(name, {
         label: "Department name",
         required: true,
         min: 2,
         max: 80,
       });
-      if (
-        !er.name &&
-        s.departments.some(function (x) {
-          return (
-            x.id !== (ex && ex.id) &&
-            x.name.toLowerCase() === name.toLowerCase()
-          );
-        })
-      )
-        er.name = "A department with this name already exists.";
       er.description = V.text(f.description.get(), {
         label: "Description",
         max: 200,
       });
       perr.textContent = chosen.length ? "" : "Choose at least one programme.";
-      if (ex) {
-        var blocked = ex.programmes.filter(function (p) {
-          return (
-            chosen.indexOf(p) === -1 &&
-            OGA.getQuestions(true).some(function (q) {
-              return q.departmentId === ex.id && q.programme === p;
-            })
-          );
-        });
-        if (blocked.length)
-          perr.textContent =
-            "Questions exist for " +
-            blocked.join(", ") +
-            " in this department. Move or delete them before removing that programme.";
-      }
       Object.keys(er).forEach(function (k) {
         if (!er[k]) delete er[k];
       });
       var ok = A.applyErrors({ name: f.name, description: f.description }, er);
       if (!ok || perr.textContent) {
-        if (ok) progs[s.options.programmes[0]].input.focus();
         A.notify("Not saved. Fix the highlighted fields.", "error");
         return;
       }
       A.busy(save, true, "Saving…");
-      var done = A.commit(function (n) {
-        if (ex) {
-          var t = n.departments.filter(function (x) {
-            return x.id === ex.id;
-          })[0];
-          if (!t) return "That department no longer exists.";
-          Object.assign(t, {
+      A.api(
+        ex ? "PUT" : "POST",
+        "admin/departments" + (ex ? "/" + ex.id : ""),
+        {
+          json: {
             name: name,
             description: f.description.get(),
-            programmes: chosen,
+            programmeIds: chosen,
             visible: f.visible.get(),
-          });
-        } else {
-          var base = A.slug(name),
-            nid = base,
-            k = 1;
-          while (
-            n.departments.some(function (x) {
-              return x.id === nid;
-            })
-          ) {
-            k++;
-            nid = base + "-" + k;
-          }
-          n.departments.push({
-            id: nid,
-            name: name,
-            description: f.description.get(),
-            programmes: chosen,
-            visible: f.visible.get(),
-            order: n.departments.length + 1,
-          });
-        }
-      });
-      A.busy(save, false);
-      if (done) {
-        A.notify((ex ? "Saved " : "Added ") + name + ".");
-        list(root);
-      }
+          },
+        },
+      ).then(
+        function (res) {
+          A.busy(save, false);
+          saved(res, root, (ex ? "Saved " : "Added ") + name + ".");
+        },
+        function (err) {
+          A.busy(save, false);
+          if (err.fields && err.fields.programmeIds)
+            perr.textContent = err.fields.programmeIds;
+          A.handleError(err, { name: f.name, description: f.description });
+        },
+      );
     });
     root.appendChild(fm);
     f.name.input.focus();

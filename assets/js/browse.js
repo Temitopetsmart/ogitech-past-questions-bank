@@ -1,10 +1,8 @@
 /*
  * Browse Questions
- * - Search runs only after form submission.
- * - Filter changes do not automatically execute a search.
- * - Results use numbered pagination instead of "Load more".
- * - Applied filters remain unchanged while navigating pages.
- * - Data currently comes from OGA; a future PHP API can replace this layer.
+ * - Search runs only after form submission; filter changes do not search by themselves.
+ * - Searching, filtering and numbered pagination are done by the server (real database results).
+ * - Applied filters stay unchanged while navigating pages.
  */
 (function () {
   "use strict";
@@ -13,14 +11,10 @@
   var h = UI.h;
   var PAGE_SIZE = 6;
   var page = 1;
-  var applied = {
-    q: "",
-    dept: "",
-    prog: "",
-    level: "",
-    sem: "",
-    year: "",
-  };
+  var pageCount = 1;
+  var meta = null;
+  var ticket = 0;
+  var applied = { q: "", dept: "", prog: "", level: "", sem: "", year: "" };
 
   var $ = function (id) {
     return document.getElementById(id);
@@ -44,127 +38,72 @@
     search: $("search-questions"),
   };
 
-  function norm(value) {
-    return String(value == null ? "" : value).toLowerCase();
-  }
-
-  function compact(value) {
-    return norm(value).replace(/[^a-z0-9]/g, "");
-  }
-
-  function option(select, value, label) {
-    select.appendChild(
-      h("option", {
-        value: value,
-        text: label,
-      }),
-    );
-  }
-
   function fillSelect(select, allLabel, items, selected) {
     UI.clear(select);
-    option(select, "", allLabel);
-
+    select.appendChild(h("option", { value: "", text: allLabel }));
     items.forEach(function (item) {
-      option(select, item[0], item[1]);
+      select.appendChild(
+        h("option", { value: String(item[0]), text: item[1] }),
+      );
     });
-
     select.value = items.some(function (item) {
-      return item[0] === selected;
+      return String(item[0]) === String(selected);
     })
-      ? selected
+      ? String(selected)
       : "";
   }
 
-  function levelsFor(programme) {
-    var levels = OGA.get().options.levels;
-
-    if (programme && levels[programme]) {
-      return levels[programme];
-    }
-
-    return [].concat
-      .apply(
-        [],
-        Object.keys(levels).map(function (key) {
-          return levels[key];
-        }),
-      )
-      .filter(function (value, index, all) {
-        return all.indexOf(value) === index;
-      });
-  }
-
-  /*
-   * Rebuild dropdowns from the current data.
-   * This function does not search or render results.
-   */
-  function fillFilters(keep) {
-    keep = keep || {};
-
-    var data = OGA.get();
-    var years = {};
-
-    OGA.getQuestions().forEach(function (question) {
-      if (question.examYear) {
-        years[String(question.examYear)] = true;
+  function levelsFor(programmeId) {
+    var out = [];
+    meta.programmes.forEach(function (p) {
+      if (!programmeId || String(p.id) === String(programmeId)) {
+        p.levels.forEach(function (l) {
+          out.push([l.id, l.name]);
+        });
       }
     });
+    return out;
+  }
 
+  /* Rebuild dropdowns from the server's lists. Does not search. */
+  function fillFilters(keep) {
+    keep = keep || {};
     fillSelect(
       el.dept,
       "All departments",
-      OGA.getDepartments().map(function (department) {
-        return [department.id, department.name];
+      meta.departments.map(function (d) {
+        return [d.id, d.name];
       }),
-      keep.dept || "",
+      keep.dept,
     );
-
     fillSelect(
       el.prog,
       "All programmes",
-      data.options.programmes.map(function (programme) {
-        return [programme, programme];
+      meta.programmes.map(function (p) {
+        return [p.id, p.name];
       }),
-      keep.prog || "",
+      keep.prog,
     );
-
-    fillSelect(
-      el.level,
-      "All levels",
-      levelsFor(el.prog.value).map(function (level) {
-        return [level, level];
-      }),
-      keep.level || "",
-    );
-
+    fillSelect(el.level, "All levels", levelsFor(el.prog.value), keep.level);
     fillSelect(
       el.sem,
       "All semesters",
-      data.options.semesters.map(function (semester) {
-        return [semester, semester];
+      meta.semesters.map(function (s) {
+        return [s.id, s.name];
       }),
-      keep.sem || "",
+      keep.sem,
     );
-
     fillSelect(
       el.year,
       "All years",
-      Object.keys(years)
-        .sort(function (a, b) {
-          return Number(b) - Number(a);
-        })
-        .map(function (year) {
-          return [year, year];
-        }),
-      keep.year || "",
+      meta.years.map(function (y) {
+        return [y, String(y)];
+      }),
+      keep.year,
     );
   }
 
-  /*
-   * Read the current form.
-   * This is a draft until the student presses Search Questions.
-   */
+  /* The form is a draft until the student presses Search Questions. */
   function readForm() {
     return {
       q: el.q.value.trim().slice(0, 80),
@@ -176,109 +115,34 @@
     };
   }
 
-  function copyFilters(filters) {
+  function copyFilters(f) {
     return {
-      q: filters.q || "",
-      dept: filters.dept || "",
-      prog: filters.prog || "",
-      level: filters.level || "",
-      sem: filters.sem || "",
-      year: filters.year || "",
+      q: f.q || "",
+      dept: f.dept || "",
+      prog: f.prog || "",
+      level: f.level || "",
+      sem: f.sem || "",
+      year: f.year || "",
     };
-  }
-
-  function matches(question, filters) {
-    if (filters.dept && question.departmentId !== filters.dept) {
-      return false;
-    }
-
-    if (filters.prog && question.programme !== filters.prog) {
-      return false;
-    }
-
-    if (filters.level && question.level !== filters.level) {
-      return false;
-    }
-
-    if (filters.sem && question.semester !== filters.sem) {
-      return false;
-    }
-
-    if (filters.year && String(question.examYear) !== String(filters.year)) {
-      return false;
-    }
-
-    if (!filters.q) {
-      return true;
-    }
-
-    var department = OGA.getDepartment(question.departmentId);
-
-    var searchableText = [
-      question.courseCode,
-      question.courseTitle,
-      department ? department.name : "",
-      question.programme,
-      question.level,
-      question.semester,
-      question.examYear,
-      OGA.sessionName(question),
-      question.notes,
-    ].join(" ");
-
-    var tokens = norm(filters.q).split(/\s+/).filter(Boolean);
-    var lowerText = norm(searchableText);
-
-    var allTokensMatch = tokens.every(function (token) {
-      return lowerText.indexOf(token) !== -1;
-    });
-
-    var compactQuery = compact(filters.q);
-
-    return (
-      allTokensMatch ||
-      (compactQuery.length > 0 &&
-        compact(searchableText).indexOf(compactQuery) !== -1)
-    );
   }
 
   function syncUrl() {
     var params = new URLSearchParams();
-
     Object.keys(applied).forEach(function (key) {
-      if (applied[key]) {
-        params.set(key, applied[key]);
-      }
+      if (applied[key]) params.set(key, applied[key]);
     });
-
     params.set("page", String(page));
-
     var query = params.toString();
-
     try {
       history.replaceState(
         null,
         "",
         location.pathname + (query ? "?" + query : ""),
       );
-
-      sessionStorage.setItem("oga_last_browse", params.toString());
+      sessionStorage.setItem("oga_last_browse", query);
     } catch (error) {
-      // Browsing should still work if browser history/storage is unavailable.
+      // Browsing still works if browser history/storage is unavailable.
     }
-  }
-
-  function getFilteredQuestions() {
-    return OGA.getQuestions()
-      .filter(function (question) {
-        return matches(question, applied);
-      })
-      .sort(function (a, b) {
-        return (
-          Number(b.examYear || 0) - Number(a.examYear || 0) ||
-          String(a.courseCode || "").localeCompare(String(b.courseCode || ""))
-        );
-      });
   }
 
   function showEmptyState() {
@@ -287,87 +151,110 @@
       class: "btn alt",
       text: "Clear filters",
     });
-
     clearButton.addEventListener("click", clearAll);
-
-    var requestLink = h("a", {
-      class: "btn",
-      href: "request-question.html",
-      text: "Request a Question",
-    });
-
     el.results.appendChild(
       h("div", { class: "empty" }, [
-        h("h3", {
-          text: "No matching questions found",
-        }),
+        h("h3", { text: "No matching questions found" }),
         h("p", {
           text: "Try another course code, remove a filter, or request the question you need.",
         }),
-        h("div", { class: "result-empty-actions" }, [clearButton, requestLink]),
+        h("div", { class: "result-empty-actions" }, [
+          clearButton,
+          h("a", {
+            class: "btn",
+            href: "request-question.html",
+            text: "Request a Question",
+          }),
+        ]),
       ]),
     );
   }
 
-  function render() {
-    var allQuestions = getFilteredQuestions();
-    var total = allQuestions.length;
-    var pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
-    if (page > pageCount) {
-      page = pageCount;
-    }
-
-    var startIndex = (page - 1) * PAGE_SIZE;
-    var visibleQuestions = allQuestions.slice(
-      startIndex,
-      startIndex + PAGE_SIZE,
-    );
-
+  function showProblem(message) {
+    var retry = h("button", {
+      type: "button",
+      class: "btn alt",
+      text: "Try again",
+    });
+    retry.addEventListener("click", load);
     UI.clear(el.results);
+    el.results.appendChild(
+      h("div", { class: "empty", role: "alert" }, [
+        h("h3", { text: "Questions could not be loaded" }),
+        h("p", { text: message }),
+        retry,
+      ]),
+    );
+    el.count.textContent = "";
+    el.pagination.hidden = true;
+  }
+
+  function draw(res) {
+    var total = res.meta.total;
+    pageCount = res.meta.pages;
+    UI.clear(el.results);
+    el.results.removeAttribute("aria-busy");
 
     if (total === 0) {
       el.count.textContent = "0 questions found.";
       showEmptyState();
     } else {
       var list = h("div", { class: "qlist" });
-
-      visibleQuestions.forEach(function (question) {
+      res.data.forEach(function (question) {
         list.appendChild(UI.qRow(question));
       });
-
       el.results.appendChild(list);
-
-      var firstResult = startIndex + 1;
-      var lastResult = Math.min(startIndex + PAGE_SIZE, total);
-
+      var first = (res.meta.page - 1) * PAGE_SIZE + 1;
+      var last = Math.min(first + res.data.length - 1, total);
       el.count.textContent =
-        "Showing " +
-        firstResult +
-        "–" +
-        lastResult +
-        " of " +
-        total +
-        " questions";
+        "Showing " + first + "–" + last + " of " + total + " questions";
     }
-
     el.pagination.hidden = total <= PAGE_SIZE;
-
     el.prev.disabled = page <= 1;
     el.next.disabled = page >= pageCount;
-
     el.pageStatus.textContent = "Page " + page + " of " + pageCount;
-
     syncUrl();
   }
 
-  /*
-   * Called only when the user explicitly submits the search form.
-   */
+  /* Ask the server for the current page of results. Older responses are ignored. */
+  function load() {
+    var mine = ++ticket;
+    UI.clear(el.results);
+    el.results.setAttribute("aria-busy", "true");
+    el.results.appendChild(
+      h("p", { class: "muted", role: "status", text: "Loading questions…" }),
+    );
+    el.count.textContent = "";
+    OGA.questions({
+      q: applied.q,
+      department: applied.dept,
+      programme: applied.prog,
+      level: applied.level,
+      semester: applied.sem,
+      year: applied.year,
+      sort: "year",
+      page: page,
+      perPage: PAGE_SIZE,
+    }).then(
+      function (res) {
+        if (mine !== ticket) return;
+        if (page > res.meta.pages) {
+          page = res.meta.pages;
+          return load();
+        }
+        draw(res);
+      },
+      function (err) {
+        if (mine !== ticket) return;
+        showProblem(err && err.message ? err.message : "Please try again.");
+      },
+    );
+  }
+
   function applySearch() {
     applied = copyFilters(readForm());
     page = 1;
-    render();
+    load();
   }
 
   function clearAll() {
@@ -375,13 +262,12 @@
     fillFilters({});
     applied = copyFilters(readForm());
     page = 1;
-    render();
+    load();
   }
 
   function restoreFromUrl() {
     var params = new URLSearchParams(location.search);
-
-    var requestedFilters = {
+    var wanted = {
       q: (params.get("q") || "").trim().slice(0, 80),
       dept: params.get("dept") || "",
       prog: params.get("prog") || "",
@@ -389,87 +275,62 @@
       sem: params.get("sem") || "",
       year: params.get("year") || "",
     };
-
-    el.q.value = requestedFilters.q;
-    fillFilters(requestedFilters);
-
-    // Use only values that survived dropdown validation.
-    applied = copyFilters({
-      q: el.q.value,
-      dept: el.dept.value,
-      prog: el.prog.value,
-      level: el.level.value,
-      sem: el.sem.value,
-      year: el.year.value,
-    });
-
-    var requestedPage = Number(params.get("page") || 1);
-
-    page =
-      Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+    el.q.value = wanted.q;
+    fillFilters(wanted);
+    // Keep only values that exist in the dropdowns.
+    applied = copyFilters(readForm());
+    var requested = Number(params.get("page") || 1);
+    page = Number.isInteger(requested) && requested > 0 ? requested : 1;
   }
 
   function init() {
-    restoreFromUrl();
+    el.results.setAttribute("aria-busy", "true");
+    el.results.appendChild(
+      h("p", { class: "muted", role: "status", text: "Loading questions…" }),
+    );
+    OGA.meta().then(
+      function (m) {
+        meta = m;
+        restoreFromUrl();
 
-    /*
-     * Changing the programme may change which levels are available.
-     * It updates the level dropdown only; it does not search.
-     */
-    el.prog.addEventListener("change", function () {
-      var selectedLevel = el.level.value;
-
-      fillSelect(
-        el.level,
-        "All levels",
-        levelsFor(el.prog.value).map(function (level) {
-          return [level, level];
-        }),
-        selectedLevel,
-      );
-    });
-
-    /*
-     * Typing is intentionally not connected to render() or applySearch().
-     */
-    el.form.addEventListener("submit", function (event) {
-      event.preventDefault();
-      applySearch();
-    });
-
-    el.clear.addEventListener("click", clearAll);
-
-    el.prev.addEventListener("click", function () {
-      if (page > 1) {
-        page -= 1;
-        render();
-      }
-    });
-
-    el.next.addEventListener("click", function () {
-      var totalPages = Math.max(
-        1,
-        Math.ceil(getFilteredQuestions().length / PAGE_SIZE),
-      );
-
-      if (page < totalPages) {
-        page += 1;
-        render();
-      }
-    });
-
-    render();
+        /* Changing the programme only updates the level list; it does not search. */
+        el.prog.addEventListener("change", function () {
+          fillSelect(
+            el.level,
+            "All levels",
+            levelsFor(el.prog.value),
+            el.level.value,
+          );
+        });
+        el.form.addEventListener("submit", function (event) {
+          event.preventDefault();
+          applySearch();
+        });
+        el.clear.addEventListener("click", clearAll);
+        el.prev.addEventListener("click", function () {
+          if (page > 1) {
+            page -= 1;
+            load();
+          }
+        });
+        el.next.addEventListener("click", function () {
+          if (page < pageCount) {
+            page += 1;
+            load();
+          }
+        });
+        load();
+      },
+      function (err) {
+        showProblem(err && err.message ? err.message : "Please try again.");
+      },
+    );
   }
 
-  /*
-   * Preserve compatibility with existing code that refreshes this page.
-   * Calling render() does not read unsubmitted form changes.
-   */
   window.OGAPage = {
-    render: render,
+    render: function () {},
     search: applySearch,
     clear: clearAll,
   };
-
   init();
 })();

@@ -1,5 +1,4 @@
-/* Admin accounts (Main Admin only). PROTOTYPE: passwords are kept in plain text in browser storage.
-   The backend stores password_hash() values and enforces roles on the server. */
+/* Admin accounts (Main Admin only). Passwords are hashed by the server and never sent back. */
 (function () {
   var A = OGAAdmin,
     h = A.h,
@@ -9,86 +8,100 @@
     "accounts",
     "Admin Accounts",
     function (root) {
-      list(root);
+      return list(root);
     },
     { icon: "fa-users-gear", roles: ["main"], group: "admin" },
   );
 
-  function activeMains(users) {
-    return users.filter(function (u) {
-      return u.role === "main" && u.active;
-    }).length;
-  }
-
   function list(root) {
-    A.clear(root);
-    var me = A.user();
-    root.appendChild(
-      A.title("Admin accounts", "People who can sign in to this admin area.", [
-        A.btn("Add account", "fa-user-plus", "primary", function () {
-          form(root, null);
-        }),
-      ]),
-    );
-    var box = h("div", { class: "qlist" });
-    OGA.get().adminUsers.forEach(function (u) {
-      var self = u.id === me.id;
-      var del = A.btn(
-        "",
-        "fa-trash",
-        "subtle danger-text",
-        function () {
-          remove(root, u);
-        },
-        "Delete " + u.name,
-      );
-      if (self) {
-        del.disabled = true;
-        del.setAttribute("title", "You cannot delete your own account.");
-      }
-      box.appendChild(
-        h("article", { class: "q-item" }, [
-          h("div", { class: "q-main" }, [
-            h("strong", { text: u.name + (self ? " (you)" : "") }),
-            h("span", {
-              class: "muted",
-              text: "@" + u.username + " · added " + A.fmtDate(u.createdAt),
+    return A.api("GET", "admin/users").then(function (res) {
+      A.clear(root);
+      var me = A.user();
+      root.appendChild(
+        A.title(
+          "Admin accounts",
+          "People who can sign in to this admin area.",
+          [
+            A.btn("Add account", "fa-user-plus", "primary", function () {
+              form(root, null, res.data);
             }),
+          ],
+        ),
+      );
+      var box = h("div", { class: "qlist" });
+      res.data.forEach(function (u) {
+        var self = u.id === me.id;
+        var del = A.btn(
+          "",
+          "fa-trash",
+          "subtle danger-text",
+          function () {
+            remove(root, u);
+          },
+          "Delete " + u.name,
+        );
+        if (self) {
+          del.disabled = true;
+          del.setAttribute("title", "You cannot delete your own account.");
+        }
+        box.appendChild(
+          h("article", { class: "q-item" }, [
+            h("div", { class: "q-main" }, [
+              h("strong", { text: u.name + (self ? " (you)" : "") }),
+              h("span", {
+                class: "muted",
+                text:
+                  "@" +
+                  u.username +
+                  " · added " +
+                  A.fmtDate(u.createdAt) +
+                  (u.lastLoginAt
+                    ? " · last sign-in " + A.fmtDate(u.lastLoginAt)
+                    : ""),
+              }),
+            ]),
+            h("div", { class: "q-tags" }, [
+              A.pill(A.roleLabel(u.role), u.role === "main" ? "gold" : ""),
+              A.pill(
+                u.isActive ? "Active" : "Disabled",
+                u.isActive ? "ok" : "warn",
+              ),
+            ]),
+            h("div", { class: "q-actions" }, [
+              A.btn(
+                "",
+                "fa-pen-to-square",
+                "subtle",
+                function () {
+                  form(root, u, res.data);
+                },
+                "Edit " + u.name,
+              ),
+              del,
+            ]),
           ]),
-          h("div", { class: "q-tags" }, [
-            A.pill(A.roleLabel(u.role), u.role === "main" ? "gold" : ""),
-            A.pill(u.active ? "Active" : "Disabled", u.active ? "ok" : "warn"),
-          ]),
-          h("div", { class: "q-actions" }, [
-            A.btn(
-              "",
-              "fa-pen-to-square",
-              "subtle",
-              function () {
-                form(root, u.id);
-              },
-              "Edit " + u.name,
-            ),
-            del,
+        );
+      });
+      root.appendChild(box);
+      root.appendChild(
+        A.card("What each role can do", [
+          A.dl([
+            [
+              "Main Admin",
+              "Everything: dashboard, past questions, requests, departments, academic structure and admin accounts.",
+            ],
+            [
+              "Question Manager",
+              "Dashboard, past questions (upload, edit, publish, unpublish, delete) and student requests only.",
+            ],
           ]),
         ]),
       );
     });
-    root.appendChild(box);
-    root.appendChild(
-      A.card("What each role can do", [
-        A.dl([
-          [
-            "Main Admin",
-            "Everything: dashboard, past questions, requests, departments, academic structure and admin accounts.",
-          ],
-          [
-            "Question Manager",
-            "Dashboard, past questions (upload, edit, publish, unpublish, delete) and student requests only.",
-          ],
-        ]),
-      ]),
-    );
+  }
+
+  function reload(root) {
+    list(root).then(null, A.handleError);
   }
 
   function remove(root, u) {
@@ -97,39 +110,20 @@
       "They will no longer be able to sign in.",
       "Delete account",
       function () {
-        if (
-          A.commit(function (n) {
-            var rest = n.adminUsers.filter(function (x) {
-              return x.id !== u.id;
-            });
-            if (!activeMains(rest))
-              return "At least one active Main Admin must remain.";
-            n.adminUsers = rest;
-          })
-        ) {
+        A.api("DELETE", "admin/users/" + u.id).then(function () {
           A.notify("Deleted " + u.name + ".");
-          list(root);
-        }
+          reload(root);
+        }, A.handleError);
       },
     );
   }
 
-  function form(root, id) {
+  function form(root, ex) {
     A.clear(root);
-    var me = A.user(),
-      all = OGA.get().adminUsers,
-      ex = id
-        ? all.filter(function (u) {
-            return u.id === id;
-          })[0]
-        : null;
-    if (id && !ex) {
-      A.notify("That account no longer exists.", "error");
-      return list(root);
-    }
-    var cur = ex || { name: "", username: "", role: "manager", active: true };
+    var me = A.user();
+    var cur = ex || { name: "", username: "", role: "manager", isActive: true };
     function leave() {
-      list(root);
+      reload(root);
     }
     root.appendChild(
       A.title(ex ? "Edit account" : "Add account", null, [
@@ -169,7 +163,7 @@
         id: "ap",
         label: ex ? "New password" : "Password",
         type: "password",
-        maxlength: 60,
+        maxlength: 72,
         required: !ex,
         hint: ex
           ? "Leave blank to keep the current password. Otherwise at least 8 characters."
@@ -180,7 +174,7 @@
         id: "aa",
         label: "Account is active (can sign in)",
         type: "checkbox",
-        value: cur.active,
+        value: cur.isActive,
       }),
     };
     var save = h("button", { type: "submit", class: "btn primary" }, [
@@ -215,16 +209,9 @@
         min: 2,
         max: 60,
       });
-      er.username = !/^[A-Za-z0-9._-]{3,30}$/.test(v.username)
-        ? "Use 3 to 30 letters, numbers, dots, dashes or underscores."
-        : all.some(function (u) {
-              return (
-                u.id !== (ex && ex.id) &&
-                u.username.toLowerCase() === v.username.toLowerCase()
-              );
-            })
-          ? "That username is already taken."
-          : "";
+      er.username = /^[A-Za-z0-9._-]{3,30}$/.test(v.username)
+        ? ""
+        : "Use 3 to 30 letters, numbers, dots, dashes or underscores.";
       er.password =
         (!ex || v.password) && v.password.length < 8
           ? "Password must be at least 8 characters."
@@ -237,33 +224,37 @@
         return;
       }
       A.busy(save, true, "Saving…");
-      var ok = A.commit(function (n) {
-        var t;
-        if (ex) {
-          t = n.adminUsers.filter(function (u) {
-            return u.id === ex.id;
-          })[0];
-          if (!t) return "That account no longer exists.";
-        } else {
-          t = { id: A.uid("u"), createdAt: new Date().toISOString() };
-          n.adminUsers.push(t);
-        }
-        Object.assign(t, {
+      A.api(ex ? "PUT" : "POST", "admin/users" + (ex ? "/" + ex.id : ""), {
+        json: {
           name: v.name,
           username: v.username,
           role: v.role,
           active: v.active,
-        });
-        if (v.password) t.password = v.password;
-        if (!activeMains(n.adminUsers))
-          return "At least one active Main Admin must remain.";
-      });
-      A.busy(save, false);
-      if (ok) {
-        A.notify((ex ? "Saved " : "Created ") + v.name + ".");
-        if (ex && ex.id === me.id) return A.user() ? A.route() : A.logout();
-        list(root);
-      }
+          password: v.password,
+        },
+      }).then(
+        function () {
+          A.busy(save, false);
+          A.notify((ex ? "Saved " : "Created ") + v.name + ".");
+          if (ex && ex.id === me.id) {
+            /* Your own role or status may have changed: refresh who you are and what you can open. */
+            return OGA.api("GET", "auth/me").then(function (d) {
+              if (!d.user) return A.logout();
+              A.me = d.user;
+              document.getElementById("user-name").textContent = d.user.name;
+              document.getElementById("user-role").textContent = A.roleLabel(
+                d.user.role,
+              );
+              A.route();
+            });
+          }
+          leave();
+        },
+        function (err) {
+          A.busy(save, false);
+          A.handleError(err, f);
+        },
+      );
     });
     root.appendChild(fm);
     f.name.input.focus();

@@ -8,19 +8,19 @@
     "requests",
     "Requests",
     function (root) {
-      list(root);
+      return list(root);
     },
     {
       icon: "fa-inbox",
       badge: function () {
-        return A.newRequests();
+        return A.badges.requests;
       },
     },
   );
 
   function summary(r) {
     return [
-      A.deptName(r.departmentId),
+      r.department || "Unknown department",
       r.programme,
       r.level,
       r.semester + " semester",
@@ -30,28 +30,20 @@
       .join(" · ");
   }
 
-  function setStatus(r, status) {
-    if (
-      A.commit(function (n) {
-        var t = n.requests.filter(function (x) {
-          return x.id === r.id;
-        })[0];
-        if (!t) return "That request no longer exists.";
-        t.status = status;
-      })
-    ) {
-      A.notify(
-        status === "resolved" ? "Marked as resolved." : "Request reopened.",
-      );
-      A.refreshNav();
-      return true;
-    }
-    return false;
+  /* Fetch the list and paint it into root. Returns a promise. */
+  function list(root) {
+    return A.api("GET", "admin/requests", { query: { status: filter } }).then(
+      function (res) {
+        A.clear(root);
+        A.badges.requests = res.meta.new;
+        A.refreshNav();
+        paint(root, res);
+      },
+    );
   }
 
-  function list(root) {
-    A.clear(root);
-    var all = OGA.get().requests;
+  function paint(root, res) {
+    var meta = res.meta;
     root.appendChild(
       A.title(
         "Question requests",
@@ -65,33 +57,27 @@
       "aria-label": "Filter requests",
     });
     [
-      ["new", "New"],
-      ["resolved", "Resolved"],
-      ["", "All"],
+      ["new", "New", meta.new],
+      ["resolved", "Resolved", meta.resolved],
+      ["", "All", meta.all],
     ].forEach(function (t) {
-      var n = all.filter(function (r) {
-        return !t[0] || r.status === t[0];
-      }).length;
       var b = h("button", {
         type: "button",
         class: "tab" + (filter === t[0] ? " on" : ""),
         "aria-pressed": String(filter === t[0]),
-        text: t[1] + " (" + n + ")",
+        text: t[1] + " (" + t[2] + ")",
       });
       b.addEventListener("click", function () {
         filter = t[0];
-        list(root);
+        reload(root);
       });
       tabs.appendChild(b);
     });
     root.appendChild(tabs);
 
-    var rows = all.filter(function (r) {
-      return !filter || r.status === filter;
-    });
-    if (!rows.length) {
+    if (!res.data.length) {
       root.appendChild(
-        all.length
+        meta.all
           ? A.empty(
               "fa-circle-check",
               filter === "new" ? "No new requests" : "Nothing here",
@@ -106,7 +92,8 @@
       return;
     }
     var box = h("div", { class: "qlist" });
-    rows.forEach(function (r) {
+    res.data.forEach(function (r) {
+      var isNew = r.status === "new";
       box.appendChild(
         h("article", { class: "q-item" }, [
           h("div", { class: "q-main" }, [
@@ -118,10 +105,7 @@
             }),
           ]),
           h("div", { class: "q-tags" }, [
-            A.pill(
-              r.status === "new" ? "New" : "Resolved",
-              r.status === "new" ? "warn" : "ok",
-            ),
+            A.pill(isNew ? "New" : "Resolved", isNew ? "warn" : "ok"),
           ]),
           h("div", { class: "q-actions" }, [
             A.btn(
@@ -144,13 +128,12 @@
             ),
             A.btn(
               "",
-              r.status === "new" ? "fa-check" : "fa-rotate-left",
+              isNew ? "fa-check" : "fa-rotate-left",
               "subtle",
               function () {
-                if (setStatus(r, r.status === "new" ? "resolved" : "new"))
-                  list(root);
+                setStatus(r, isNew ? "resolved" : "new", root);
               },
-              r.status === "new"
+              isNew
                 ? "Mark " + r.courseCode + " resolved"
                 : "Reopen " + r.courseCode,
             ),
@@ -170,26 +153,32 @@
     root.appendChild(box);
   }
 
-  function upload(r) {
-    A.go("questions", {
-      add: {
-        requestId: r.id,
-        departmentId: r.departmentId,
-        programme: r.programme,
-        level: r.level,
-        semester: r.semester,
-        courseCode: r.courseCode,
-        courseTitle: r.courseTitle,
-        examYear: r.examYear || "",
-      },
+  function reload(root) {
+    return list(root).then(null, function (err) {
+      A.handleError(err);
     });
+  }
+
+  function setStatus(r, status, root) {
+    A.api("POST", "admin/requests/" + r.id + "/status", {
+      json: { status: status },
+    }).then(function () {
+      A.notify(
+        status === "resolved" ? "Marked as resolved." : "Request reopened.",
+      );
+      return reload(root);
+    }, A.handleError);
+  }
+
+  function upload(r) {
+    A.go("questions", { add: { requestId: r.id, request: r } });
   }
 
   function view(r, root) {
     var node = h("div", {}, [
       A.dl([
         ["Course", r.courseCode + " – " + r.courseTitle],
-        ["Department", A.deptName(r.departmentId)],
+        ["Department", r.department || "Unknown department"],
         ["Programme", r.programme],
         ["Level", r.level],
         ["Semester", r.semester],
@@ -215,17 +204,10 @@
       "The request for " + r.courseCode + " will be removed permanently.",
       "Delete request",
       function () {
-        if (
-          A.commit(function (n) {
-            n.requests = n.requests.filter(function (x) {
-              return x.id !== r.id;
-            });
-          })
-        ) {
+        A.api("DELETE", "admin/requests/" + r.id).then(function () {
           A.notify("Request deleted.");
-          A.refreshNav();
-          list(root);
-        }
+          return reload(root);
+        }, A.handleError);
       },
     );
   }

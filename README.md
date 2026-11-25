@@ -1,29 +1,33 @@
-# OGITECH Past Questions Bank (frontend prototype)
+# OGITECH Past Questions Bank
 
-Public website for finding past examination questions, plus an admin area for managing them.
-Plain HTML, CSS and JavaScript. No framework, no build step, no backend yet.
+Public website for finding past examination questions, and an admin area for managing them.
+Front end: plain HTML, CSS and JavaScript (no build step). Back end: PHP 8 + MySQL (PDO).
 
-## Run it
+## Folders
 
-Open `index.html` (or use VS Code "Live Server"). Admin: `admin/index.html`.
-Open the public site and the admin from the same address, because browser storage is per address.
+- `index.html`, `browse.html`, `question-details.html`, `request-question.html`, `about.html`: public site.
+  Text such as the hero, leadership message, about page, menu and footer is hardcoded in `assets/js/store.js`.
+- `admin/index.html` + `assets/js/admin-*.js`: admin area (Main Admin and Question Manager roles).
+- `api/`: the PHP API (`index.php` routes every request). `api/config.php` is private and git-ignored.
+- `database/`: `schema.sql`, `seed.sql` and `create-admin.php`.
+- `storage/`: private PDF storage (blocked from the web). In production use a folder outside the web root.
 
-Demo logins (prototype only): `mainadmin` / `Admin@2026` (Main Admin), `manager` / `Manager@2026` (Question Manager).
+## Set up (XAMPP / WAMP)
 
-## Structure
+1. Put the project in `htdocs` and start Apache and MySQL.
+2. Import the database as a privileged user: `mysql -u root -p < database/schema.sql` then `mysql -u root -p < database/seed.sql`.
+3. Create a limited MySQL user:
+   `CREATE USER 'pqb'@'localhost' IDENTIFIED BY 'a-strong-password'; GRANT SELECT, INSERT, UPDATE, DELETE ON pqb_db.* TO 'pqb'@'localhost';`
+4. Copy `api/config.example.php` to `agipi/config.php` and fill in the database user and password.
+5. Create the first Main Admin: `php database/create-admin.php`
+6. In `php.ini`: `upload_max_filesize=20M`, `post_max_size=100M`, `max_file_uploads=30`, `memory_limit=256M`,
+   `max_execution_time=120`; enable the `pdo_mysql`, `gd` (JPEG, PNG, WebP), `mbstring`, `fileinfo` and `exif` extensions.
+7. Open `http://localhost/<project-folder>/` and `http://localhost/<project-folder>/admin/`.
 
-- Public: `index.html`, `browse.html`, `question-details.html`, `request-question.html`, `about.html`.
-  Their text (hero, leadership, about, menu, footer) is hardcoded in `assets/js/store.js`.
-- Admin: `admin/index.html`, one JS file per section (`admin-*.js`), shared framework in `admin-core.js`.
-- `assets/js/store.js`: the only place that reads and writes data (`window.OGA`).
+## How it works
 
-## Data
-
-Only question-bank data is saved (localStorage key `pqb_state`): questions, departments, academic structure,
-sessions, student requests and admin accounts. Academic session and examination year are separate fields.
-
-## Limits (until the PHP/MySQL backend)
-
-- The admin login is a stand-in. Nothing is protected; passwords are plain text in browser storage.
-- Selected PDFs and images are validated and previewed but not stored; image-to-PDF conversion is backend work.
-- Dashboard numbers come from the saved records. "Frequently opened" counts on the homepage are demonstration values.
+- Students only ever receive published questions, as one PDF. Drafts are invisible to the public API.
+- Administrators upload one PDF or several images; the server combines images into a single PDF in the order sent.
+- Permissions are enforced on the server for every request: a Question Manager gets 403 on Main Admin endpoints.
+- Academic session (e.g. 2025/2026) and examination year (e.g. 2025) are separate fields.
+- Views and downloads shown on the site are real counters.

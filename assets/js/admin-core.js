@@ -1,9 +1,8 @@
-/* Admin framework: prototype login, role guard, routing and shared helpers.
-   PROTOTYPE ONLY: the login is a stand-in. The backend enforces real authentication
-   and permissions on the server; hiding things here is not security. */
+/* Admin framework: sign-in, role-aware navigation, routing and shared helpers.
+   Every action goes through the PHP API. Hiding links here is only for convenience:
+   the server enforces who may do what, so typing a restricted URL is refused with 403. */
 (function () {
-  var SESSION_KEY = "pqb_admin_uid",
-    GREEN = "#0b5d34",
+  var GREEN = "#0b5d34",
     GREY = "#5a655f",
     RED = "#c8102e";
 
@@ -27,62 +26,77 @@
   }
 
   var views = {},
-    order = [];
+    order = [],
+    routeTicket = 0;
   var A = {
     h: h,
     clear: clear,
     $: $,
     pending: null,
+    me: null,
+    structure: null,
+    badges: { requests: 0 },
     GREEN: GREEN,
     GREY: GREY,
     RED: RED,
   };
 
-  /* ---------- Prototype authentication ---------- */
+  /* ---------- API access ---------- */
+  A.api = function (method, path, o) {
+    return OGA.api(method, path, o).then(null, function (err) {
+      if (err.status === 401 && A.me) expired();
+      throw err;
+    });
+  };
+  A.fileUrl = function (id) {
+    return OGA.API + "admin/questions/" + encodeURIComponent(id) + "/file";
+  };
+  A.loadStructure = function () {
+    return A.api("GET", "admin/structure").then(function (s) {
+      A.structure = s;
+      return s;
+    });
+  };
+  A.setStructure = function (s) {
+    A.structure = s;
+  };
+  A.deptName = function (id) {
+    var d = ((A.structure && A.structure.departments) || []).filter(
+      function (x) {
+        return x.id === id;
+      },
+    )[0];
+    return d ? d.name : "Unknown department";
+  };
+
+  /* ---------- Session ---------- */
   A.user = function () {
-    var id = null;
-    try {
-      id = sessionStorage.getItem(SESSION_KEY);
-    } catch (e) {}
-    if (!id) return null;
-    return (
-      OGA.get().adminUsers.filter(function (u) {
-        return u.id === id && u.active;
-      })[0] || null
-    );
-  };
-  A.login = function (username, password) {
-    var name = String(username || "")
-      .trim()
-      .toLowerCase();
-    var u = OGA.get().adminUsers.filter(function (x) {
-      return (
-        x.active && x.username.toLowerCase() === name && x.password === password
-      );
-    })[0];
-    if (!u) return null;
-    try {
-      sessionStorage.setItem(SESSION_KEY, u.id);
-    } catch (e) {
-      return null;
-    }
-    return u;
-  };
-  A.logout = function () {
-    try {
-      sessionStorage.removeItem(SESSION_KEY);
-    } catch (e) {}
-    history.replaceState(null, "", location.pathname + location.search);
-    A.destroyCharts && A.destroyCharts();
-    showLogin();
+    return A.me;
   };
   A.roleLabel = function (r) {
     return r === "main" ? "Main Admin" : "Question Manager";
   };
   A.can = function (id) {
-    var u = A.user(),
-      v = views[id];
-    return !!(u && v && v.roles.indexOf(u.role) !== -1);
+    var v = views[id];
+    return !!(A.me && v && v.roles.indexOf(A.me.role) !== -1);
+  };
+  function expired() {
+    A.me = null;
+    OGA.setCsrf(null);
+    A.destroyCharts && A.destroyCharts();
+    showLogin("Your session has ended. Please sign in again.");
+  }
+  A.logout = function () {
+    OGA.api("POST", "auth/logout")
+      .then(null, function () {})
+      .then(function () {
+        A.me = null;
+        A.structure = null;
+        OGA.setCsrf(null);
+        history.replaceState(null, "", location.pathname + location.search);
+        A.destroyCharts && A.destroyCharts();
+        showLogin();
+      });
   };
 
   /* ---------- Views and routing ---------- */
@@ -139,12 +153,10 @@
       nav.appendChild(a);
     });
   }
-
   A.refreshNav = buildNav;
 
   A.route = function () {
-    var user = A.user();
-    if (!user) return showLogin();
+    if (!A.me) return showLogin();
     var id = A.current(),
       asked = location.hash.slice(1);
     if (views[asked] && !A.can(asked)) {
@@ -157,27 +169,54 @@
       id = "dashboard";
     }
     closeDrawer();
-    var view = $("view");
     A.destroyCharts && A.destroyCharts();
-    clear(view);
     buildNav();
-    try {
-      views[id].render(view);
-    } catch (err) {
-      if (window.console) console.error(err);
-      clear(view);
-      view.appendChild(
-        A.empty(
-          "fa-triangle-exclamation",
-          "Something went wrong",
-          "This section could not be shown. Reload the page and try again.",
-        ),
-      );
-    }
+    var mine = ++routeTicket,
+      view = $("view"),
+      root = h("div");
+    clear(view);
+    view.appendChild(
+      h("p", { class: "loading", role: "status" }, [A.spinner(), " Loading…"]),
+    );
     $("page-title").textContent = views[id].label;
     document.title = views[id].label + " | OGITECH Past Questions Bank Admin";
-    view.focus();
-    window.scrollTo(0, 0);
+    function show(node) {
+      if (mine !== routeTicket) return;
+      clear(view);
+      view.appendChild(node);
+      view.focus();
+      window.scrollTo(0, 0);
+    }
+    Promise.resolve()
+      .then(function () {
+        return views[id].render(root);
+      })
+      .then(
+        function () {
+          show(root);
+          buildNav();
+        },
+        function (err) {
+          if (err && err.status === 401) return;
+          if (window.console) console.error(err);
+          var retry = A.btn(
+            "Try again",
+            "fa-rotate-right",
+            "ghost",
+            function () {
+              A.route();
+            },
+          );
+          show(
+            A.empty(
+              "fa-triangle-exclamation",
+              "This section could not be loaded",
+              (err && err.message) || "Something went wrong.",
+              retry,
+            ),
+          );
+        },
+      );
   };
 
   /* ---------- Notifications (SweetAlert2) ---------- */
@@ -233,7 +272,6 @@
       if (r.isConfirmed) onYes();
     });
   };
-  /* Modal showing a DOM node (details, forms in a dialog). */
   A.dialog = function (title, node, o) {
     o = o || {};
     return Swal.fire({
@@ -269,20 +307,28 @@
     });
   };
 
-  /* Clone state, let fn change it, validate and persist. fn may return an error string to abort. */
-  A.commit = function (fn) {
-    var next = JSON.parse(JSON.stringify(OGA.get()));
-    var err = fn(next);
-    if (typeof err === "string") {
-      A.notify(err, "error");
-      return false;
+  /* Show a failed API call. Field errors from the server are placed under the matching inputs. */
+  A.handleError = function (err, fields, map) {
+    if (err && err.status === 401) return;
+    if (err && err.status === 422 && err.fields && fields) {
+      var errs = {};
+      Object.keys(err.fields).forEach(function (k) {
+        errs[(map && map[k]) || k] = err.fields[k];
+      });
+      var known = {};
+      Object.keys(errs).forEach(function (k) {
+        if (fields[k]) known[k] = errs[k];
+      });
+      if (Object.keys(known).length) {
+        A.applyErrors(fields, known);
+        A.notify("Not saved. Fix the highlighted fields.", "error");
+        return;
+      }
     }
-    var r = OGA.save(next);
-    if (!r.ok) {
-      A.error("Not saved", r.error);
-      return false;
-    }
-    return true;
+    A.error(
+      err && err.status === 0 ? "Connection problem" : "That did not work",
+      (err && err.message) || "Something went wrong.",
+    );
   };
 
   /* ---------- Small UI helpers ---------- */
@@ -296,9 +342,6 @@
           year: "numeric",
         });
   };
-  A.uid = function (p) {
-    return p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  };
   A.slug = function (s) {
     return (
       String(s)
@@ -308,10 +351,6 @@
         .replace(/^-+|-+$/g, "")
         .slice(0, 30) || "item"
     );
-  };
-  A.deptName = function (id) {
-    var d = OGA.getDepartment(id);
-    return d ? d.name : "Unknown department";
   };
   A.spinner = function () {
     return h("span", { class: "spin", "aria-hidden": "true" });
@@ -346,6 +385,7 @@
         btn._kids.forEach(function (k) {
           btn.appendChild(k);
         });
+        btn._kids = null;
       }
       btn.disabled = false;
       btn.removeAttribute("aria-busy");
@@ -398,31 +438,29 @@
       : Math.max(1, Math.round(n / 1024)) + " KB";
   };
 
-  /* Upload / conversion progress bar. The backend will drive set() from upload events and conversion status. */
+  /* Upload / conversion progress bar, driven by real upload events and the server's response. */
   A.progress = function () {
     var bar = h("div", { class: "bar-fill" }),
       label = h("span", { class: "muted", role: "status" }),
-      el = h("div", { class: "progress", hidden: "" }, [
-        h(
-          "div",
-          {
-            class: "bar",
-            role: "progressbar",
-            "aria-valuemin": "0",
-            "aria-valuemax": "100",
-          },
-          [bar],
-        ),
-        label,
-      ]);
+      track = h(
+        "div",
+        {
+          class: "bar",
+          role: "progressbar",
+          "aria-valuemin": "0",
+          "aria-valuemax": "100",
+        },
+        [bar],
+      ),
+      el = h("div", { class: "progress", hidden: "" }, [track, label]);
     return {
       el: el,
       set: function (pct, text) {
         el.hidden = false;
         bar.style.width = (pct == null ? 100 : pct) + "%";
-        bar.parentNode.classList.toggle("indeterminate", pct == null);
-        if (pct != null)
-          bar.parentNode.setAttribute("aria-valuenow", String(pct));
+        track.classList.toggle("indeterminate", pct == null);
+        if (pct != null) track.setAttribute("aria-valuenow", String(pct));
+        else track.removeAttribute("aria-valuenow");
         label.textContent = text || "";
       },
       hide: function () {
@@ -442,9 +480,9 @@
     if (o.type === "select") {
       input = h("select", { id: id });
       (o.options || []).forEach(function (op) {
-        input.appendChild(h("option", { value: op[0], text: op[1] }));
+        input.appendChild(h("option", { value: String(op[0]), text: op[1] }));
       });
-      input.value = o.value == null ? "" : o.value;
+      input.value = o.value == null ? "" : String(o.value);
     } else if (o.type === "textarea") {
       input = h("textarea", { id: id, rows: o.rows || 3 });
       input.value = o.value || "";
@@ -512,14 +550,17 @@
   };
 
   /* ---------- Shell: login, drawer ---------- */
-  function showLogin() {
+  function showLogin(message) {
+    $("boot").hidden = true;
     $("app").hidden = true;
     $("login").hidden = false;
+    $("lg-err").textContent = message || "";
     document.title = "Sign in | OGITECH Past Questions Bank Admin";
     $("lg-user").focus();
   }
   function showApp() {
-    var u = A.user();
+    var u = A.me;
+    $("boot").hidden = true;
     $("login").hidden = true;
     $("app").hidden = false;
     $("user-name").textContent = u.name;
@@ -537,6 +578,23 @@
   }
   function closeDrawer() {
     if ($("sidebar").classList.contains("is-open")) setDrawer(false);
+  }
+
+  /* Session established (login or page reload): load shared lists, then open the app. */
+  function begin(data) {
+    OGA.setCsrf(data.csrfToken);
+    A.me = data.user;
+    A.badges.requests = data.newRequests || 0;
+    return A.loadStructure().then(function () {
+      if (!location.hash || !views[location.hash.slice(1)])
+        history.replaceState(
+          null,
+          "",
+          location.pathname + location.search + "#dashboard",
+        );
+      showApp();
+      A.route();
+    });
   }
 
   function start() {
@@ -569,34 +627,43 @@
       }
       err.textContent = "";
       A.busy(btn, true, "Signing in…");
-      setTimeout(function () {
-        var user = A.login(u.value, p.value);
-        A.busy(btn, false);
-        if (!user) {
-          err.textContent =
-            "Incorrect username or password, or browser storage is blocked.";
+      OGA.api("POST", "auth/login", {
+        json: { username: u.value.trim(), password: p.value },
+      })
+        .then(function (data) {
+          u.value = "";
           p.value = "";
-          p.focus();
-          return;
-        }
-        u.value = "";
-        p.value = "";
-        history.replaceState(
-          null,
-          "",
-          location.pathname + location.search + "#dashboard",
-        );
-        showApp();
-        A.route();
-      }, 350);
+          history.replaceState(
+            null,
+            "",
+            location.pathname + location.search + "#dashboard",
+          );
+          return begin(data);
+        })
+        .then(null, function (e2) {
+          err.textContent =
+            e2.status === 401 ? "Incorrect username or password." : e2.message;
+          if (e2.status === 401 || e2.status === 429) {
+            p.value = "";
+            p.focus();
+          }
+        })
+        .then(function () {
+          A.busy(btn, false);
+        });
     });
     window.addEventListener("hashchange", A.route);
-    if (A.user()) {
-      showApp();
-      A.route();
-    } else showLogin();
-    var st = OGA.status();
-    if (st.message) A.notify(st.message, "error");
+    OGA.api("GET", "auth/me").then(
+      function (d) {
+        if (!d.user) return showLogin();
+        return begin(d).then(null, function (e) {
+          showLogin(e.message);
+        });
+      },
+      function (e) {
+        showLogin(e.message);
+      },
+    );
   }
 
   window.OGAAdmin = A;

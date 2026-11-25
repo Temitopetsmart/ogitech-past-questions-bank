@@ -300,12 +300,11 @@
   }
 
   function qRow(x) {
-    var dep = OGA.getDepartment(x.departmentId);
     var meta = h("div", { class: "m" }, [
-      h("span", { text: dep ? dep.name : "Unassigned" }),
+      h("span", { text: x.department || "Unassigned" }),
       h("span", { text: x.level }),
       h("span", { text: x.semester + " semester" }),
-      h("span", { text: OGA.sessionName(x) }),
+      h("span", { text: x.session }),
     ]);
     return h("div", { class: "qrow" }, [
       h("div", { class: "t", text: x.courseCode + " – " + x.courseTitle }),
@@ -319,41 +318,45 @@
     ]);
   }
 
+  function problem() {
+    return h("p", {
+      class: "empty",
+      role: "alert",
+      text: "Questions could not be loaded right now. Please refresh the page.",
+    });
+  }
+
   var builders = {
-    departments: function (sec) {
+    departments: function (sec, data) {
+      if (data.failed) return problem();
       var g = h("div", { class: "grid depts" });
-      OGA.getDepartments()
-        .slice(0, sec.limit)
-        .forEach(function (d) {
-          g.appendChild(
-            h(
-              "a",
-              {
-                class: "tile",
-                href: "browse.html?dept=" + encodeURIComponent(d.id),
-              },
-              [
-                h("span", {
-                  class: "badge",
-                  "aria-hidden": "true",
-                  text: d.name.charAt(0),
-                }),
-                h("strong", { text: d.name }),
-                h("span", { class: "muted", text: d.programmes.join(" / ") }),
-              ],
-            ),
-          );
-        });
+      data.departments.slice(0, sec.limit).forEach(function (d) {
+        g.appendChild(
+          h(
+            "a",
+            {
+              class: "tile",
+              href: "browse.html?dept=" + encodeURIComponent(d.id),
+            },
+            [
+              h("span", {
+                class: "badge",
+                "aria-hidden": "true",
+                text: d.name.charAt(0),
+              }),
+              h("strong", { text: d.name }),
+              h("span", { class: "muted", text: d.programmes.join(" / ") }),
+            ],
+          ),
+        );
+      });
       return g.children.length
         ? g
         : h("p", { class: "empty", text: "No departments to show yet." });
     },
-    recent: function (sec) {
-      var list = OGA.getQuestions()
-        .sort(function (a, b) {
-          return b.createdAt.localeCompare(a.createdAt);
-        })
-        .slice(0, sec.limit);
+    recent: function (sec, data) {
+      if (data.failed) return problem();
+      var list = data.recent.slice(0, sec.limit);
       var box = h("div", { class: "qlist" });
       list.forEach(function (x) {
         box.appendChild(qRow(x));
@@ -365,17 +368,18 @@
             text: "No questions have been published yet.",
           });
     },
-    popular: function (sec) {
-      var list = OGA.getQuestions()
-        .sort(function (a, b) {
-          return b.demoViews - a.demoViews;
+    popular: function (sec, data) {
+      if (data.failed) return problem();
+      var list = data.popular
+        .filter(function (x) {
+          return x.views > 0;
         })
         .slice(0, sec.limit);
       var box = h("div", { class: "qlist" });
       list.forEach(function (x) {
         var row = qRow(x);
         row.firstChild.appendChild(
-          h("span", { class: "tag", text: "Demo: " + x.demoViews + " views" }),
+          h("span", { class: "tag", text: x.views + " views" }),
         );
         box.appendChild(row);
       });
@@ -502,15 +506,9 @@
 
       return wrap.children.length ? wrap : null;
     },
-    featured: function (sec) {
-      var list = OGA.getQuestions()
-        .filter(function (x) {
-          return x.featured;
-        })
-        .sort(function (a, b) {
-          return b.updatedAt.localeCompare(a.updatedAt);
-        })
-        .slice(0, sec.limit);
+    featured: function (sec, data) {
+      if (data.failed) return problem();
+      var list = data.featured.slice(0, sec.limit);
       var box = h("div", { class: "qlist" });
       list.forEach(function (x) {
         box.appendChild(qRow(x));
@@ -640,31 +638,59 @@
     },
   };
 
+  function loadHome() {
+    return Promise.all([
+      OGA.meta(),
+      OGA.questions({ sort: "recent", perPage: 6 }),
+      OGA.questions({ featured: 1, sort: "updated", perPage: 6 }),
+      OGA.questions({ sort: "popular", perPage: 6 }),
+    ]).then(function (r) {
+      return {
+        departments: r[0].departments,
+        recent: r[1].data,
+        featured: r[2].data,
+        popular: r[3].data,
+      };
+    });
+  }
+
   function renderSections() {
     var host = $("sections");
     clear(host);
-    OGA.get().sections.forEach(function (sec) {
-      if (!sec.enabled || !builders[sec.id]) return;
-      var body = builders[sec.id](sec);
-      if (!body) return;
-      var head = h("div", { class: "sec-head" }, [
-        h("div", {}, [
-          h("h2", { text: sec.heading }),
-          sec.description
-            ? h("p", { class: "muted", text: sec.description })
-            : null,
-        ]),
-      ]);
-      if (sec.id === "departments" || sec.id === "recent")
-        head.appendChild(h("a", { href: "browse.html", text: "View all" }));
-      var s = h(
-        "section",
-        { class: "section", id: sec.id, "aria-labelledby": sec.id + "-h" },
-        [h("div", { class: "wrap" }, [head, body])],
-      );
-      s.querySelector("h2").id = sec.id + "-h";
-      host.appendChild(s);
-    });
+    host.appendChild(
+      h("div", { class: "wrap" }, [
+        h("p", { class: "muted", role: "status", text: "Loading…" }),
+      ]),
+    );
+    loadHome()
+      .then(null, function () {
+        return { failed: true };
+      })
+      .then(function (data) {
+        clear(host);
+        OGA.get().sections.forEach(function (sec) {
+          if (!sec.enabled || !builders[sec.id]) return;
+          var body = builders[sec.id](sec, data);
+          if (!body) return;
+          var head = h("div", { class: "sec-head" }, [
+            h("div", {}, [
+              h("h2", { text: sec.heading }),
+              sec.description
+                ? h("p", { class: "muted", text: sec.description })
+                : null,
+            ]),
+          ]);
+          if (sec.id === "departments" || sec.id === "recent")
+            head.appendChild(h("a", { href: "browse.html", text: "View all" }));
+          var s = h(
+            "section",
+            { class: "section", id: sec.id, "aria-labelledby": sec.id + "-h" },
+            [h("div", { class: "wrap" }, [head, body])],
+          );
+          s.querySelector("h2").id = sec.id + "-h";
+          host.appendChild(s);
+        });
+      });
   }
 
   function renderAll() {
@@ -672,20 +698,12 @@
     applyTheme(s);
     renderHeader(s);
     renderFooter(s);
-    var st = OGA.status();
-    if (st.message && $("storage-note")) {
-      clear($("storage-note"));
-      $("storage-note").appendChild(
-        h("p", { class: "notice", role: "alert", text: st.message }),
-      );
-    }
-    if (document.body.dataset.page === "home") {
+     if (document.body.dataset.page === "home") {
       renderHero(s);
       renderSections();
     }
     if (window.OGAPage && window.OGAPage.render) window.OGAPage.render(s);
   }
-
 
   function patchActionIcons(root) {
     var rules = [
@@ -712,7 +730,7 @@
       [/^feature/i, "fa-star"],
       [/^filter/i, "fa-filter"],
       [/^refresh|reload/i, "fa-arrows-rotate"],
-      [/^view public website|public site/i, "fa-arrow-up-right-from-square"]
+      [/^view public website|public site/i, "fa-arrow-up-right-from-square"],
     ];
 
     function apply(node) {
@@ -720,9 +738,9 @@
       if (!node.matches("a, button")) return;
       if (node.querySelector(".fa-solid, .fa-regular, .fa-brands")) return;
 
-      var label = (
-        node.getAttribute("aria-label") || node.textContent || ""
-      ).replace(/\s+/g, " ").trim();
+      var label = (node.getAttribute("aria-label") || node.textContent || "")
+        .replace(/\s+/g, " ")
+        .trim();
 
       for (var i = 0; i < rules.length; i++) {
         if (rules[i][0].test(label)) {
@@ -762,7 +780,7 @@
       });
     }).observe(document.body, {
       childList: true,
-      subtree: true
+      subtree: true,
     });
   }
 

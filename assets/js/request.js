@@ -1,4 +1,4 @@
-/* Request form: validates, then saves the request for the admin Requests inbox (prototype: browser storage). */
+/* Request form: validates, then sends the request to the API so administrators see it in their Requests inbox. */
 (function () {
   var UI = OGAUI,
     h = UI.h,
@@ -18,8 +18,22 @@
     "year",
     "details",
   ];
+  /* API field name -> form field id */
+  var FIELD_MAP = {
+    name: "name",
+    email: "email",
+    departmentId: "dept",
+    programme: "prog",
+    level: "level",
+    semester: "sem",
+    courseCode: "code",
+    courseTitle: "title",
+    examYear: "year",
+    details: "details",
+  };
   var touched = {},
-    locked = false;
+    locked = false,
+    meta = null;
 
   function opts(sel, placeholder, items, keep) {
     UI.clear(sel);
@@ -33,8 +47,13 @@
       ? keep
       : "";
   }
+  function deptIds() {
+    return meta.departments.map(function (d) {
+      return String(d.id);
+    });
+  }
   function fill() {
-    var o = OGA.get().options,
+    var o = meta.options,
       k = {};
     NAMES.forEach(function (n) {
       k[n] = $(n).value;
@@ -42,8 +61,8 @@
     opts(
       $("dept"),
       "Select department",
-      OGA.getDepartments().map(function (d) {
-        return [d.id, d.name];
+      meta.departments.map(function (d) {
+        return [String(d.id), d.name];
       }),
       k.dept,
     );
@@ -66,7 +85,7 @@
     fillLevels(k.level);
   }
   function fillLevels(keep) {
-    var L = OGA.get().options.levels[$("prog").value] || [];
+    var L = meta.options.levels[$("prog").value] || [];
     opts(
       $("level"),
       $("prog").value ? "Select level" : "Choose a programme first",
@@ -79,7 +98,7 @@
   }
 
   function check(n) {
-    var o = OGA.get().options,
+    var o = meta.options,
       v = $(n).value,
       prog = $("prog").value;
     switch (n) {
@@ -88,13 +107,7 @@
       case "email":
         return V.email(v);
       case "dept":
-        return V.choice(
-          v,
-          OGA.getDepartments().map(function (d) {
-            return d.id;
-          }),
-          "department",
-        );
+        return V.choice(v, deptIds(), "department");
       case "prog":
         return V.choice(v, o.programmes, "programme");
       case "level":
@@ -119,17 +132,19 @@
     }
     return "";
   }
-  function show(n) {
-    var msg = check(n);
+  function setError(n, msg) {
     $("err-" + n).textContent = msg;
     if (msg) $(n).setAttribute("aria-invalid", "true");
     else $(n).removeAttribute("aria-invalid");
     return msg;
   }
+  function show(n) {
+    return setError(n, check(n));
+  }
 
-  function   function submit(e) {
+  function submit(e) {
     e.preventDefault();
-    if (locked) return;
+    if (locked || !meta) return;
     var first = null;
     NAMES.forEach(function (n) {
       touched[n] = true;
@@ -141,10 +156,15 @@
     }
     var box = $("done");
     var year = $("year").value.trim();
-    var res = OGA.addRequest({
+    var btn = $("submit");
+    var label = btn.textContent;
+    locked = true;
+    btn.disabled = true;
+    btn.textContent = "Sending…";
+    OGA.addRequest({
       name: $("name").value.trim(),
       email: $("email").value.trim(),
-      departmentId: $("dept").value,
+      departmentId: +$("dept").value,
       programme: $("prog").value,
       level: $("level").value,
       semester: $("sem").value,
@@ -152,17 +172,36 @@
       courseTitle: $("title").value.trim(),
       examYear: year ? +year : null,
       details: $("details").value.trim(),
-    });
-    if (!res.ok) {
-      UI.clear(box);
-      box.appendChild(h("h2", { text: "Your request was not sent" }));
-      box.appendChild(h("p", { text: res.error }));
-      box.hidden = false;
-      box.focus();
-      return;
-    }
-    locked = true;
-    $("submit").disabled = true;
+    }).then(
+      function () {
+        btn.textContent = label;
+        sent(box);
+      },
+      function (err) {
+        locked = false;
+        btn.disabled = false;
+        btn.textContent = label;
+        var firstBad = null;
+        if (err.fields) {
+          Object.keys(err.fields).forEach(function (k) {
+            var id = FIELD_MAP[k];
+            if (id) {
+              setError(id, err.fields[k]);
+              if (!firstBad) firstBad = id;
+            }
+          });
+        }
+        if (firstBad) return $(firstBad).focus();
+        UI.clear(box);
+        box.appendChild(h("h2", { text: "Your request was not sent" }));
+        box.appendChild(h("p", { text: err.message || "Please try again." }));
+        box.hidden = false;
+        box.focus();
+      },
+    );
+  }
+
+  function sent(box) {
     UI.clear(box);
     var again = h("button", {
       type: "button",
@@ -172,8 +211,7 @@
     again.onclick = function () {
       $("req").reset();
       NAMES.forEach(function (n) {
-        $("err-" + n).textContent = "";
-        $(n).removeAttribute("aria-invalid");
+        setError(n, "");
         touched[n] = false;
       });
       fill();
@@ -198,15 +236,33 @@
     box.hidden = false;
     box.focus();
   }
+
   function count() {
     $("counter").textContent = $("details").value.length + " / 500";
   }
 
   function init() {
     $("intro").textContent = (OGA.get().about || {}).requestIntro || "";
-    fill();
+    $("submit").disabled = true;
+    OGA.meta().then(
+      function (m) {
+        meta = m;
+        fill();
+        $("submit").disabled = locked;
+      },
+      function (err) {
+        var box = $("done");
+        UI.clear(box);
+        box.appendChild(h("h2", { text: "The form could not be loaded" }));
+        box.appendChild(
+          h("p", { text: (err && err.message) || "Please refresh the page." }),
+        );
+        box.hidden = false;
+      },
+    );
     NAMES.forEach(function (n) {
       $(n).addEventListener("blur", function () {
+        if (!meta) return;
         touched[n] = true;
         show(n);
       });
@@ -215,17 +271,18 @@
           ? "change"
           : "input",
         function () {
-          if (touched[n] || $("err-" + n).textContent) show(n);
+          if (meta && (touched[n] || $("err-" + n).textContent)) show(n);
         },
       );
     });
     $("prog").addEventListener("change", function () {
+      if (!meta) return;
       fillLevels("");
       if (touched.level) show("level");
     });
     $("details").addEventListener("input", count);
     $("req").addEventListener("submit", submit);
   }
-  window.OGAPage = { render: fill };
+  window.OGAPage = { render: function () {} };
   init();
 })();
