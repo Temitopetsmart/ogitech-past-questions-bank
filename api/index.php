@@ -9,7 +9,7 @@ require __DIR__ . '/lib/auth.php';
 require __DIR__ . '/lib/present.php';
 require __DIR__ . '/lib/pdf.php';
 require __DIR__ . '/lib/files.php';
-foreach (['public', 'auth', 'admin', 'structure', 'users', 'leadership'] as $r) require __DIR__ . "/routes/$r.php";
+foreach (['public', 'auth', 'admin', 'structure', 'users', 'leadership', 'calendars'] as $r) require __DIR__ . "/routes/$r.php";
 
 dispatch([
     // Public
@@ -28,6 +28,15 @@ dispatch([
     ['POST', '/admin/leadership', 'adm_leadership_save', 'admin'],
     ['POST', '/admin/leadership/{id}', 'adm_leadership_save', 'admin'],
     ['DELETE', '/admin/leadership/{id}', 'adm_leadership_delete', 'admin'],
+
+    // Academic calendars
+
+    ['GET', '/public/calendars', 'pub_calendars', 'public'],
+    ['GET', '/public/calendars/{id}/file', 'pub_calendar_file', 'public'],
+    ['GET', '/admin/calendars', 'adm_calendars_list', 'admin'],
+    ['POST', '/admin/calendars', 'adm_calendar_save', 'admin'],
+    ['POST', '/admin/calendars/{id}', 'adm_calendar_save', 'admin'],
+    ['DELETE', '/admin/calendars/{id}', 'adm_calendar_delete', 'admin'],
 
     // Authentication
     ['POST', '/auth/login',                    'auth_login',           'public'],

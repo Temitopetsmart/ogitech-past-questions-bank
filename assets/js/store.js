@@ -31,6 +31,7 @@
       nav: [
         { label: "Home", href: "index.html" },
         { label: "Browse Questions", href: "browse.html" },
+        { label: "Academic Calendar", href: "academic-calendar.html" },
         { label: "Departments", href: "index.html#departments" },
         { label: "About", href: "about.html" },
         { label: "Request a Question", href: "request-question.html" },

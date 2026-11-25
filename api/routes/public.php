@@ -6,7 +6,11 @@ declare(strict_types=1);
 function pub_meta(array $p): void
 {
     $deps = q_all('SELECT d.id, d.name, d.description,
-            (SELECT COUNT(*) FROM questions q WHERE q.department_id = d.id AND q.is_published = 1) AS question_count
+            (SELECT COUNT(*)
+                FROM questions q
+                WHERE q.department_id = d.id
+                AND q.document_type = \'question\'
+                AND q.is_published = 1) AS question_count
         FROM departments d WHERE d.is_visible = 1 ORDER BY d.sort_order, d.id');
     $links = q_all('SELECT department_id, programme_id FROM department_programmes');
     $out = [];
@@ -17,7 +21,14 @@ function pub_meta(array $p): void
             'programmeIds' => array_values(array_map(fn($l) => (int)$l['programme_id'], array_filter($links, fn($l) => (int)$l['department_id'] === (int)$d['id']))),
         ];
     }
-    $years = array_map('intval', array_column(q_all('SELECT DISTINCT exam_year FROM questions WHERE is_published = 1 ORDER BY exam_year DESC'), 'exam_year'));
+    $years = array_map('intval', array_column(q_all('
+    SELECT DISTINCT exam_year
+        FROM questions
+        WHERE document_type = \'question\'
+        AND is_published = 1
+        AND exam_year IS NOT NULL
+        ORDER BY exam_year DESC
+    '), 'exam_year'));
     json_out(['departments' => $out, 'years' => $years] + academic_lists());
 }
 

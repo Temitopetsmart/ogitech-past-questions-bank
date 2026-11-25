@@ -161,6 +161,23 @@ dl.meta dd {
   max-width: 68ch;
 }
 
+.calendar-preview {
+  margin-top: 16px;
+}
+
+.calendar-pdf-preview {
+  display: block;
+  width: 100%;
+  height: 650px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.calendar-preview .btn {
+  margin-top: 12px;
+}
+
 /* =========================================================
    Browse Questions: search controls and numbered pagination
    ========================================================= */

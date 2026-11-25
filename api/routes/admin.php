@@ -5,9 +5,9 @@ declare(strict_types=1);
 
 function adm_dashboard(array $p): void
 {
-    $tot = q_one('SELECT COUNT(*) AS total, COALESCE(SUM(is_published),0) AS published FROM questions');
-    $byDept = q_all('SELECT d.id, d.name, COUNT(q.id) AS c FROM departments d LEFT JOIN questions q ON q.department_id = d.id GROUP BY d.id, d.name ORDER BY d.sort_order, d.id');
-    $byYear = q_all('SELECT exam_year AS y, COUNT(*) AS c FROM questions GROUP BY exam_year ORDER BY exam_year');
+    $tot = q_one('SELECT COUNT(*) AS total, COALESCE(SUM(is_published),0) AS published FROM questions WHERE document_type = \'question\'');
+    $byDept = q_all('SELECT d.id, d.name, COUNT(q.id) AS c FROM departments d LEFT JOIN questions q ON q.department_id = d.id AND q.document_type = \'question\' GROUP BY d.id, d.name ORDER BY d.sort_order, d.id');
+    $byYear = q_all('SELECT exam_year AS y, COUNT(*) AS c FROM questions WHERE document_type = \'question\' AND exam_year IS NOT NULL GROUP BY exam_year ORDER BY exam_year');
     $trendRows = q_all("SELECT DATE_FORMAT(created_at, '%Y-%m') AS m, COUNT(*) AS c FROM questions
         WHERE created_at >= DATE_FORMAT(UTC_TIMESTAMP() - INTERVAL 5 MONTH, '%Y-%m-01') GROUP BY m");
     $map = array_column($trendRows, 'c', 'm');
