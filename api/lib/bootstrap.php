@@ -205,6 +205,10 @@ final class Check
             if ($required) $this->errors[$k] = "Choose a $label.";
             return null;
         }
+        if (!is_scalar($v)) {
+            $this->errors[$k] = "Choose a valid $label.";
+            return null;
+        }
         $n = filter_var($v, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         if ($n === false) { $this->errors[$k] = "Choose a valid $label."; return null; }
         return $n;
