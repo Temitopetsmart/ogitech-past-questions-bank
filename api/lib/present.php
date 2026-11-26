@@ -93,9 +93,7 @@ function question_list(array $in, bool $admin, int $defaultPer, int $maxPer): ar
 {
     [$where, $args] = question_filters($in, $admin);
     $w = $where ? ' WHERE ' . implode(' AND ', $where) : '';
-    $page = max(1, (int)($in['page'] ?? 1));
-    $per = (int)($in['perPage'] ?? $defaultPer);
-    $per = min($maxPer, max(1, $per));
+    [$page, $per] = pagination_params($in, $defaultPer, $maxPer);
     $order = match ($in['sort'] ?? 'recent') {
         'popular' => 'q.view_count DESC, q.created_at DESC',
         'year'    => 'q.exam_year DESC, q.course_code ASC',
@@ -105,11 +103,12 @@ function question_list(array $in, bool $admin, int $defaultPer, int $maxPer): ar
     };
     $from = substr(QUESTION_SELECT, strpos(QUESTION_SELECT, 'FROM questions'));
     $total = (int)q_val('SELECT COUNT(*) ' . $from . $w, $args);
+    $meta = pagination_meta($total, $page, $per);
     $offset = ($page - 1) * $per;
     $rows = q_all(QUESTION_SELECT . $w . " ORDER BY $order LIMIT $per OFFSET $offset", $args);
     return [
         'data' => array_map(fn($r) => question_json($r, $admin), $rows),
-        'meta' => ['total' => $total, 'page' => $page, 'perPage' => $per, 'pages' => (int)max(1, ceil($total / $per))],
+        'meta' => $meta,
     ];
 }
 
