@@ -1471,3 +1471,39 @@ h3 {
     padding: 0.85rem;
   }
 }
+
+
+/* Numbered pagination */
+.pagination-pages,
+.pagination-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+.pagination-pages .page-number,
+.pagination-controls .page-number {
+  min-width: 40px;
+  padding-inline: 0.55rem;
+}
+.pagination-pages .page-number.current,
+.pagination-controls .page-number.current {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+@media (max-width: 520px) {
+  .pagination {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .pagination-status {
+    order: -1;
+    flex-basis: 100%;
+    text-align: center;
+  }
+  .pagination-pages {
+    flex-basis: 100%;
+  }
+}
