@@ -455,7 +455,7 @@
     });
     var summary = h("p", {
       class: "muted pagination-summary",
-      text: "Showing " + meta.from + "–" + meta.to + " of " + meta.total,
+      text: "Showing " + meta.from + "–" + meta.to + " of " + meta.total + " · Page " + meta.page + " of " + meta.pages,
     });
     var controls = h("div", { class: "pagination-controls" });
     var prev = A.btn("Previous", "fa-chevron-left", "ghost sm", function () {
