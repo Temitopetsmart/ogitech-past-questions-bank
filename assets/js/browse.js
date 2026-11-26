@@ -192,6 +192,7 @@
 
   function draw(res) {
     var total = res.meta.total;
+    page = res.meta.page;
     pageCount = res.meta.pages;
     UI.clear(el.results);
     el.results.removeAttribute("aria-busy");
