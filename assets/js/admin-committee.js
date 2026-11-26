@@ -5,6 +5,7 @@
   var A = OGAAdmin,
     h = A.h,
     viewTerm = null,
+    page = 1,
     MAX_MB = 8; /* keep in step with limits.image_mb in api/config.php */
 
   A.register(
@@ -32,11 +33,12 @@
 
   function list(root) {
     return A.api("GET", "admin/committee", {
-      query: viewTerm ? { term: viewTerm } : null,
+      query: { term: viewTerm || "", page: page },
     }).then(function (res) {
       var terms = res.terms || [],
         term = res.term,
-        items = res.data || [];
+        items = res.data || [],
+        pageMeta = res.meta;
       viewTerm = term ? term.id : null;
       A.clear(root);
 
@@ -94,6 +96,7 @@
       sel.value = String(term.id);
       sel.addEventListener("change", function () {
         viewTerm = Number(sel.value);
+        page = 1;
         reload(root);
       });
 
@@ -250,6 +253,17 @@
         if (i === items.length - 1) btns[1].disabled = true;
       });
       root.appendChild(box);
+      if (pageMeta && pageMeta.pages > 1) {
+        if (pageMeta.pages > 1) {
+          var note = h("p", { class: "hint", text: "Member reordering is temporarily unavailable while this term spans multiple pages." });
+          root.appendChild(note);
+          box.querySelectorAll(".q-actions button").forEach(function (button) {
+            if (button.getAttribute("aria-label") && /Move .* (up|down)/.test(button.getAttribute("aria-label"))) button.disabled = true;
+          });
+        }
+      }
+      var pager = A.pagination(pageMeta, function (nextPage) { page = nextPage; reload(root); });
+      if (pager) root.appendChild(pager);
     });
   }
 
