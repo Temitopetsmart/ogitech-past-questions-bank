@@ -125,7 +125,8 @@ function struct_dept_delete(array $p): void
     $n = (int)q_val('SELECT COUNT(*) FROM questions WHERE department_id = ?', [$id]);
     $pdo = db(); $pdo->beginTransaction();
     if ($n > 0) {
-        $to = filter_var($_GET['moveTo'] ?? (body()['moveTo'] ?? null), FILTER_VALIDATE_INT);
+        $rawMoveTo = $_GET['moveTo'] ?? (body()['moveTo'] ?? null);
+        $to = is_scalar($rawMoveTo) ? filter_var($rawMoveTo, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) : false;
         if (!$to || $to === $id) fail(409, 'in_use', "$n question(s) use this department. Choose another department to move them to.");
         if (!q_one('SELECT 1 FROM departments WHERE id = ?', [$to])) fail(422, 'validation', 'The department to move questions to does not exist.');
         $missing = q_all('SELECT DISTINCT pr.name FROM questions q JOIN programmes pr ON pr.id = q.programme_id
