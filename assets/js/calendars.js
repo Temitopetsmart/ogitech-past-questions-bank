@@ -2,6 +2,7 @@
 (function () {
   var list = document.getElementById("calendar-list");
   var count = document.getElementById("calendar-count");
+  var page = 1, pageCount = 1;
 
   function el(tag, attrs, children) {
     var node = document.createElement(tag);
@@ -33,17 +34,18 @@
     );
   }
 
-  function load() {
-    OGA.api("GET", "public/calendars").then(
+  function load(requestedPage) {
+    if (requestedPage) page = requestedPage;
+    OGA.api("GET", "public/calendars", { query: { page: page, perPage: 20 } }).then(
       function (res) {
         var calendars = res.data || [];
         list.replaceChildren();
 
-        count.textContent =
-          calendars.length +
-          (calendars.length === 1
-            ? " academic calendar available"
-            : " academic calendars available");
+        page = res.meta ? res.meta.page : page;
+        pageCount = res.meta ? res.meta.pages : 1;
+        count.textContent = res.meta && res.meta.total
+          ? "Showing " + res.meta.from + "–" + res.meta.to + " of " + res.meta.total + " academic calendars · Page " + page + " of " + pageCount
+          : "0 academic calendars available";
 
         if (!calendars.length) {
           empty(
@@ -97,6 +99,29 @@
             ]),
           );
         });
+        var nav = el("nav", { class: "pagination", "aria-label": "Academic calendar pages" });
+        var previous = el("button", { type: "button", class: "btn alt pagination-button", text: "Previous" });
+        previous.disabled = page <= 1;
+        previous.addEventListener("click", function () { load(page - 1); });
+        var pages = el("div", { class: "pagination-pages" });
+        var start = Math.max(1, page - 2), end = Math.min(pageCount, start + 4);
+        start = Math.max(1, end - 4);
+        for (var n = start; n <= end; n++) {
+          (function (number) {
+            var button = el("button", { type: "button", class: "btn page-number" + (number === page ? " current" : ""), text: String(number) });
+            button.disabled = number === page;
+            if (button.disabled) button.setAttribute("aria-current", "page");
+            button.addEventListener("click", function () { load(number); });
+            pages.appendChild(button);
+          })(n);
+        }
+        var next = el("button", { type: "button", class: "btn pagination-button", text: "Next" });
+        next.disabled = page >= pageCount;
+        next.addEventListener("click", function () { load(page + 1); });
+        nav.appendChild(previous);
+        nav.appendChild(pages);
+        nav.appendChild(next);
+        list.appendChild(nav);
       },
       function (err) {
         count.textContent = "Unable to load academic calendars.";
