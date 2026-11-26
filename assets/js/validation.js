@@ -5,6 +5,7 @@
     text: function (v, o) {
       v = String(v || "").trim();
       if (!v) return o.required ? o.label + " is required." : "";
+      if (/[<>]/.test(v)) return o.label + " must be plain text; HTML markup is not allowed.";
       if (o.min && v.length < o.min)
         return o.label + " must be at least " + o.min + " characters.";
       if (v.length > o.max)
