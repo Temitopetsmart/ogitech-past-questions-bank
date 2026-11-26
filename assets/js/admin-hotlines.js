@@ -134,8 +134,8 @@
           ]),
         );
         var b = box.lastChild.querySelectorAll("button");
-        if (i === 0) b[0].disabled = true;
-        if (i === items.length - 1) b[1].disabled = true;
+        if (res.meta && res.meta.from + i <= 1) b[0].disabled = true;
+        if (res.meta && res.meta.from + i >= res.meta.total) b[1].disabled = true;
       });
       root.appendChild(box);
       var pager = A.pagination(res.meta, function (nextPage) { page = nextPage; reload(root); });
@@ -159,20 +159,11 @@
   }
 
   function move(root, items, i, d) {
-    var ids = items.map(function (x) {
-      return x.id;
-    });
-    var j = i + d,
-      t = ids[i];
-    if (j < 0 || j >= ids.length) return;
-    ids[i] = ids[j];
-    ids[j] = t;
-    A.api("POST", "admin/hotlines/reorder", { json: { ids: ids } }).then(
-      function () {
-        reload(root);
-      },
-      A.handleError,
-    );
+    var item = items[i];
+    if (!item) return;
+    A.api("POST", "admin/hotlines/reorder", {
+      json: { hotlineId: item.id, direction: d < 0 ? "up" : "down" },
+    }).then(reload.bind(null, root), A.handleError);
   }
 
   function edit(root, item) {
