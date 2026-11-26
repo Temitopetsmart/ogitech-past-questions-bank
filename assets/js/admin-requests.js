@@ -2,7 +2,7 @@
 (function () {
   var A = OGAAdmin,
     h = A.h;
-  var filter = "new";
+  var filter = "new", page = 1;
 
   A.register(
     "requests",
@@ -32,7 +32,7 @@
 
   /* Fetch the list and paint it into root. Returns a promise. */
   function list(root) {
-    return A.api("GET", "admin/requests", { query: { status: filter } }).then(
+    return A.api("GET", "admin/requests", { query: { status: filter, page: page } }).then(
       function (res) {
         A.clear(root);
         A.badges.requests = res.meta.new;
@@ -69,6 +69,7 @@
       });
       b.addEventListener("click", function () {
         filter = t[0];
+        page = 1;
         reload(root);
       });
       tabs.appendChild(b);
@@ -151,6 +152,8 @@
       );
     });
     root.appendChild(box);
+    var pager = A.pagination(meta, function (nextPage) { page = nextPage; reload(root); });
+    if (pager) root.appendChild(pager);
   }
 
   function reload(root) {
