@@ -312,8 +312,10 @@ function reorder_rows(string $table, array $ids, ?array $scope = null): void
 function adm_member_reorder(array $p): void
 {
     $in = body();
-    $term = filter_var($in['termId'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-    $memberId = filter_var($in['memberId'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    $rawTerm = $in['termId'] ?? null;
+    $rawMemberId = $in['memberId'] ?? null;
+    $term = is_scalar($rawTerm) ? filter_var($rawTerm, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) : false;
+    $memberId = is_scalar($rawMemberId) ? filter_var($rawMemberId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) : false;
     $direction = $in['direction'] ?? '';
     if (!$term || !$memberId || !in_array($direction, ['up', 'down'], true)) {
         fail(422, 'validation', 'Choose a valid member and move direction.');
@@ -401,7 +403,8 @@ function adm_hotline_delete(array $p): void
 function adm_hotline_reorder(array $p): void
 {
     $in = body();
-    $id = filter_var($in['hotlineId'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    $rawId = $in['hotlineId'] ?? null;
+    $id = is_scalar($rawId) ? filter_var($rawId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) : false;
     $direction = $in['direction'] ?? '';
     if (!$id || !in_array($direction, ['up', 'down'], true)) fail(422, 'validation', 'Choose a valid hotline and move direction.');
     $ids = array_map('intval', array_column(q_all('SELECT id FROM hotlines ORDER BY sort_order, id'), 'id'));
