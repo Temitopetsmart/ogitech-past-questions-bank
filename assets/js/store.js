@@ -31,11 +31,21 @@
       links: { school: "", sug: "" },
       nav: [
         { label: "Home", href: "index.html" },
-        { label: "Browse Questions", href: "browse.html" },
-        { label: "Academic Calendar", href: "academic-calendar.html" },
-        { label: "Departments", href: "index.html#departments" },
-        { label: "About", href: "about.html" },
-        { label: "Executives", href: "committee.html" },
+        {
+          label: "Academics",
+          items: [
+            { label: "Browse Questions", href: "browse.html" },
+            { label: "Academic Calendar", href: "academic-calendar.html" },
+            { label: "Departments", href: "index.html#departments" },
+          ],
+        },
+        {
+          label: "About",
+          items: [
+            { label: "About the Project", href: "about.html" },
+            { label: "Executives", href: "committee.html" },
+          ],
+        },
         { label: "Request a Question", href: "request-question.html" },
       ],
       theme: { green: "#0b5d34", accent: "#c8102e", gold: "#c9a227" },
