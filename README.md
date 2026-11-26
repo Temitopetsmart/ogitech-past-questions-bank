@@ -34,6 +34,7 @@ There is no frontend build process or framework dependency.
 - Request missing past questions.
 - View institution-wide academic calendars.
 - View current executive information, committee information and public hotlines.
+- View leadership profiles with positions, optional academic/professional qualifications and approved messages.
 - Read the static About page and project history.
 
 ### Question Management
@@ -189,7 +190,7 @@ mysql -u root -p pqb_db < database/migration-leadership-profile-details.sql
 mysql -u root -p pqb_db < database/migration-committee-hotlines.sql
 ```
 
-Use the database name configured in `api/config.php` instead of `pqb_db` if it differs. The profile-details migration is safe to run after the updated leadership migration; it adds missing columns only.
+These migrations target the `pqb_db` database created by `database/schema.sql`. If your database has a different name, change the `USE pqb_db;` line at the top of each migration before running it. The profile-details migration is safe to run after the updated leadership migration; it adds missing columns only.
 
 Do not run `database/migration-about-records.sql`. It belongs to the retired database-backed About implementation. If its tables already exist, leave them unused; do not drop them or import that migration again.
 
