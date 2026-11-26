@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /* ---------- Leadership helpers ---------- */
 
-function leadership_json(array $r): array
+function leadership_json(array $r, bool $admin = false): array
 {
     return [
         'id' => (int)$r['id'],
@@ -11,7 +11,7 @@ function leadership_json(array $r): array
         'position' => $r['position'],
         'qualifications' => $r['qualifications'] ?? '',
         'message' => $r['message'],
-        'imageUrl' => 'api/public/leadership/' . (int)$r['id'] . '/image',
+        'imageUrl' => ($admin ? 'api/admin/leadership/' : 'api/public/leadership/') . (int)$r['id'] . '/image',
         'visible' => (bool)$r['is_visible'],
         'order' => (int)$r['sort_order'],
         'createdAt' => iso($r['created_at']),
@@ -19,10 +19,10 @@ function leadership_json(array $r): array
     ];
 }
 
-function leadership_file_path(int $id): ?string
+function leadership_file_path(int $id, bool $visibleOnly = false): ?string
 {
     $row = q_one(
-        'SELECT photo_path FROM leadership_profiles WHERE id = ?',
+        'SELECT photo_path FROM leadership_profiles WHERE id = ?' . ($visibleOnly ? ' AND is_visible = 1' : ''),
         [$id]
     );
 
@@ -131,10 +131,9 @@ function pub_leadership(array $p): void
     ]);
 }
 
-function pub_leadership_image(array $p): never
+function leadership_stream_image(int $id, bool $visibleOnly): never
 {
-    $id = path_id($p);
-    $path = leadership_file_path($id);
+    $path = leadership_file_path($id, $visibleOnly);
 
     if (!$path || !preg_match(
         '#^leadership/\d{4}/[a-f0-9]{32}\.(jpg|png|webp)$#',
@@ -144,28 +143,32 @@ function pub_leadership_image(array $p): never
     }
 
     $file = storage_root() . '/' . $path;
-
     if (!is_file($file)) {
         fail(404, 'not_found', 'Leadership photograph not found.');
     }
 
     $mime = mime_of($file);
-
     if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true)) {
         fail(404, 'not_found', 'Leadership photograph not found.');
     }
 
-    while (ob_get_level()) {
-        ob_end_clean();
-    }
-
+    while (ob_get_level()) ob_end_clean();
     header('Content-Type: ' . $mime);
     header('Content-Length: ' . filesize($file));
-    header('Cache-Control: public, max-age=86400');
+    header('Cache-Control: private, max-age=86400');
     header('X-Content-Type-Options: nosniff');
-
     readfile($file);
     exit;
+}
+
+function pub_leadership_image(array $p): never
+{
+    leadership_stream_image(path_id($p), true);
+}
+
+function adm_leadership_image(array $p): never
+{
+    leadership_stream_image(path_id($p), false);
 }
 
 /* ---------- Admin endpoints ---------- */
@@ -177,7 +180,7 @@ function adm_leadership_list(array $p): void
     );
 
     json_out([
-        'data' => array_map('leadership_json', $rows)
+        'data' => array_map(fn($r) => leadership_json($r, true), $rows)
     ]);
 }
 
