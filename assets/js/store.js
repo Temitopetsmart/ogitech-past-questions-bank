@@ -1,5 +1,5 @@
 /* Data layer for the public site and the admin.
-   - Public About page content and historical people come from the PHP API.
+   - About page history is static in about.html and has no API or admin editor.
    - Academic and question data come from MySQL through the API.
    - General site presentation settings remain in HARD below. */
 
@@ -55,19 +55,8 @@
     ],
     announcements: [],
 
-    about: {
-      heading: "About the Past Questions Bank",
-      intro:
-        "A simple place for OGITECH students to find past examination questions for revision.",
-      paragraphs: [
-        "Choose your department, programme, level and semester, or search by course code or title, then open a question to preview or download it.",
-        "Studying past questions helps you see how topics are examined and how to manage your time. Use them alongside your lecture notes, not instead of them.",
-      ],
-      feedback:
-        "Cannot find a question? Send a request and tell us the course and year you need.",
-      requestIntro:
-        "Tell us which past question you need. Your request goes to the administrators, who will review it.",
-    },
+    requestIntro:
+      "Tell us which past question you need. Your request goes to the administrators, who will review it.",
     sections: [
       {
         id: "departments",
@@ -301,12 +290,6 @@
     hotlines: function () {
       return request("GET", "public/hotlines").then(function (res) {
         return res.data || [];
-      });
-    },
-
-    about: function () {
-      return request("GET", "public/about").then(function (res) {
-        return res.data || { content: {}, people: [] };
       });
     },
 
