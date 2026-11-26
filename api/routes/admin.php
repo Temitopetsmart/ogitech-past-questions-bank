@@ -30,7 +30,7 @@ function adm_dashboard(array $p): void
     ]);
 }
 
-function adm_questions_list(array $p): void { json_out(question_list($_GET, true, 20, 100)); }
+function adm_questions_list(array $p): void { json_out(question_list($_GET, true, 20, 20)); }
 
 function adm_question_get(array $p): void { json_out(['data' => question_json(get_question(path_id($p), false), true)]); }
 
