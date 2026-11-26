@@ -4,6 +4,7 @@
 
   var A = OGAAdmin;
   var h = A.h;
+  var page = 1;
 
   A.register(
     "leadership",
