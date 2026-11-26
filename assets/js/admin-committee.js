@@ -250,19 +250,10 @@
           ]),
         );
         var btns = box.lastChild.querySelectorAll("button");
-        if (i === 0) btns[0].disabled = true;
-        if (i === items.length - 1) btns[1].disabled = true;
+        if (pageMeta && pageMeta.from + i <= 1) btns[0].disabled = true;
+        if (pageMeta && pageMeta.from + i >= pageMeta.total) btns[1].disabled = true;
       });
       root.appendChild(box);
-      if (pageMeta && pageMeta.pages > 1) {
-        if (pageMeta.pages > 1) {
-          var note = h("p", { class: "hint", text: "Member reordering is temporarily unavailable while this term spans multiple pages." });
-          root.appendChild(note);
-          box.querySelectorAll(".q-actions button").forEach(function (button) {
-            if (button.getAttribute("aria-label") && /Move .* (up|down)/.test(button.getAttribute("aria-label"))) button.disabled = true;
-          });
-        }
-      }
       var pager = A.pagination(pageMeta, function (nextPage) { page = nextPage; reload(root); });
       if (pager) root.appendChild(pager);
     });
@@ -309,16 +300,14 @@
   }
 
   function move(root, term, items, i, d) {
-    var ids = items.map(function (m) {
-      return m.id;
-    });
-    var j = i + d;
-    if (j < 0 || j >= ids.length) return;
-    var t = ids[i];
-    ids[i] = ids[j];
-    ids[j] = t;
+    var member = items[i];
+    if (!member) return;
     A.api("POST", "admin/committee/members/reorder", {
-      json: { termId: term.id, ids: ids },
+      json: {
+        termId: term.id,
+        memberId: member.id,
+        direction: d < 0 ? "up" : "down",
+      },
     }).then(function () {
       reload(root);
     }, A.handleError);
