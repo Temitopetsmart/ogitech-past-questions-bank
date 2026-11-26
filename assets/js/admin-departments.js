@@ -3,7 +3,8 @@
 (function () {
   var A = OGAAdmin,
     h = A.h,
-    V = OGAValidate;
+    V = OGAValidate,
+    departmentPage = 1;
 
   A.register(
     "departments",
@@ -58,121 +59,79 @@
         ],
       ),
     );
-    var deps = S().departments;
-    if (!deps.length) {
-      root.appendChild(
-        A.empty(
-          "fa-building",
-          "No departments yet",
-          "Add a department to start organising questions.",
-          A.btn("Add department", "fa-plus", "primary", function () {
-            form(root, null);
-          }),
-        ),
-      );
-      return;
-    }
     var box = h("div", { class: "qlist" });
-    deps.forEach(function (d, i) {
-      function move(dir) {
-        var ids = deps.map(function (x) {
-            return x.id;
-          }),
-          j = i + dir,
-          t = ids[i];
-        ids[i] = ids[j];
-        ids[j] = t;
-        A.api("POST", "admin/departments/reorder", { json: { ids: ids } }).then(
-          function (res) {
-            saved(res, root);
-          },
-          A.handleError,
+    root.appendChild(box);
+    box.appendChild(h("p", { class: "loading" }, [A.spinner(), " Loading departments…"]));
+
+    return A.api("GET", "admin/structure", {
+      query: { list: "departments", page: departmentPage },
+    }).then(function (res) {
+      A.clear(box);
+      departmentPage = res.meta.page;
+      var deps = res.data || [];
+      var allDeps = S().departments || [];
+      if (!res.meta.total) {
+        box.appendChild(
+          A.empty(
+            "fa-building",
+            "No departments yet",
+            "Add a department to start organising questions.",
+            A.btn("Add department", "fa-plus", "primary", function () {
+              form(root, null);
+            }),
+          ),
         );
+        return;
       }
-      var up = A.btn(
-          "",
-          "fa-arrow-up",
-          "subtle",
-          function () {
-            move(-1);
-          },
-          "Move " + d.name + " up",
-        ),
-        down = A.btn(
-          "",
-          "fa-arrow-down",
-          "subtle",
-          function () {
-            move(1);
-          },
-          "Move " + d.name + " down",
-        );
-      up.disabled = i === 0;
-      down.disabled = i === deps.length - 1;
-      box.appendChild(
-        h("article", { class: "q-item" }, [
-          h("div", { class: "q-main" }, [
-            h("strong", { text: d.name }),
-            h("span", {
-              class: "muted",
-              text: d.description || "No description",
-            }),
-            h("span", {
-              class: "muted",
-              text:
-                "Programmes: " +
-                (progNames(d).join(", ") || "none") +
-                " · " +
-                d.questionCount +
-                (d.questionCount === 1 ? " question" : " questions"),
-            }),
-          ]),
-          h("div", { class: "q-tags" }, [
-            A.pill(d.visible ? "Shown" : "Hidden", d.visible ? "ok" : ""),
-          ]),
-          h("div", { class: "q-actions" }, [
-            up,
-            down,
-            A.btn(
-              "",
-              d.visible ? "fa-eye-slash" : "fa-eye",
-              "subtle",
-              function () {
+      deps.forEach(function (d) {
+        var index = allDeps.findIndex(function (x) { return x.id === d.id; });
+        function move(dir) {
+          var j = index + dir;
+          if (j < 0 || j >= allDeps.length) return;
+          var ids = allDeps.map(function (x) { return x.id; });
+          var temp = ids[index]; ids[index] = ids[j]; ids[j] = temp;
+          A.api("POST", "admin/departments/reorder", { json: { ids: ids } }).then(
+            function (res) {
+              saved(res, root);
+            },
+            A.handleError,
+          );
+        }
+        var up = A.btn("", "fa-arrow-up", "subtle", function () { move(-1); }, "Move " + d.name + " up");
+        var down = A.btn("", "fa-arrow-down", "subtle", function () { move(1); }, "Move " + d.name + " down");
+        up.disabled = index <= 0;
+        down.disabled = index < 0 || index >= allDeps.length - 1;
+        box.appendChild(
+          h("article", { class: "q-item" }, [
+            h("div", { class: "q-main" }, [
+              h("strong", { text: d.name }),
+              h("span", { class: "muted", text: d.description || "No description" }),
+              h("span", { class: "muted", text: "Programmes: " + (progNames(d).join(", ") || "none") + " · " + d.questionCount + (d.questionCount === 1 ? " question" : " questions") }),
+            ]),
+            h("div", { class: "q-tags" }, [
+              A.pill(d.visible ? "Shown" : "Hidden", d.visible ? "ok" : ""),
+            ]),
+            h("div", { class: "q-actions" }, [
+              up, down,
+              A.btn("", d.visible ? "fa-eye-slash" : "fa-eye", "subtle", function () {
                 A.api("PUT", "admin/departments/" + d.id, {
                   json: bodyOf(d, { visible: !d.visible }),
-                }).then(function (res) {
-                  saved(
-                    res,
-                    root,
-                    (d.visible ? "Hidden: " : "Shown: ") + d.name + ".",
-                  );
+                }).then(function (updated) {
+                  saved(updated, root, (d.visible ? "Hidden: " : "Shown: ") + d.name + ".");
                 }, A.handleError);
-              },
-              (d.visible ? "Hide " : "Show ") + d.name,
-            ),
-            A.btn(
-              "",
-              "fa-pen-to-square",
-              "subtle",
-              function () {
-                form(root, d.id);
-              },
-              "Edit " + d.name,
-            ),
-            A.btn(
-              "",
-              "fa-trash",
-              "subtle danger-text",
-              function () {
-                del(root, d);
-              },
-              "Delete " + d.name,
-            ),
+              }, (d.visible ? "Hide " : "Show ") + d.name),
+              A.btn("", "fa-pen-to-square", "subtle", function () { form(root, d.id); }, "Edit " + d.name),
+              A.btn("", "fa-trash", "subtle danger-text", function () { del(root, d); }, "Delete " + d.name),
+            ]),
           ]),
-        ]),
-      );
+        );
+      });
+      var pager = A.pagination(res.meta, function (nextPage) {
+        departmentPage = nextPage;
+        list(root).catch(A.handleError);
+      });
+      if (pager) root.appendChild(pager);
     });
-    root.appendChild(box);
   }
 
   function del(root, d) {
