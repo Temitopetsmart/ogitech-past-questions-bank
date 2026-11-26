@@ -244,7 +244,9 @@
   }
 
   function init() {
-    $("intro").textContent = (OGA.get().about || {}).requestIntro || "";
+    $("intro").textContent =
+      OGA.get().requestIntro ||
+      "Tell us which past question you need. Your request goes to the administrators, who will review it.";
     $("submit").disabled = true;
     OGA.meta().then(
       function (m) {

@@ -1268,3 +1268,46 @@ code {
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== About page administration ===== */
+
+.about-admin-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.about-admin-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: #fff;
+}
+
+.about-admin-info {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.about-admin-info strong {
+  overflow-wrap: anywhere;
+}
+
+.about-admin-info .muted {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 560px) {
+  .about-admin-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .about-admin-item .q-actions {
+    width: 100%;
+  }
+}

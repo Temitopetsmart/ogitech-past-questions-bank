@@ -9,7 +9,7 @@ require __DIR__ . '/lib/auth.php';
 require __DIR__ . '/lib/present.php';
 require __DIR__ . '/lib/pdf.php';
 require __DIR__ . '/lib/files.php';
-foreach (['public', 'auth', 'admin', 'structure', 'users', 'leadership', 'calendars', 'committee'] as $r) require __DIR__ . "/routes/$r.php";
+foreach (['public', 'auth', 'admin', 'structure', 'users', 'leadership', 'calendars', 'committee', 'about'] as $r) require __DIR__ . "/routes/$r.php";
 
 dispatch([
     // Public
@@ -37,6 +37,13 @@ dispatch([
     ['POST', '/admin/calendars', 'adm_calendar_save', 'admin'],
     ['POST', '/admin/calendars/{id}', 'adm_calendar_save', 'admin'],
     ['DELETE', '/admin/calendars/{id}', 'adm_calendar_delete', 'admin'],
+
+    // About page and institutional history
+    ['GET',  '/public/about',             'pub_about',              'public'],
+    ['GET',  '/admin/about',              'adm_about_get',          'main'],
+    ['POST', '/admin/about',              'adm_about_save',         'main'],
+    ['POST', '/admin/about/people',       'adm_about_person_save',  'main'],
+    ['POST', '/admin/about/people/{id}',  'adm_about_person_save',  'main'],
 
     // Committee + hotlines
     ['GET',  '/public/committee',                  'pub_committee',        'public'],

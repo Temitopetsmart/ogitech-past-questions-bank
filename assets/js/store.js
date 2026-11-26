@@ -1,7 +1,8 @@
 /* Data layer for the public site and the admin.
-   - Site text that is not question-bank data (header, hero, leadership, about, ...) is HARDCODED in HARD below.
-   - Everything else comes from the PHP API through the functions at the bottom (window.OGA).
-   The API folder is found relative to this script, so it works from the site root and from /admin/. */
+   - Public About page content and historical people come from the PHP API.
+   - Academic and question data come from MySQL through the API.
+   - General site presentation settings remain in HARD below. */
+
 (function () {
   "use strict";
 
@@ -300,6 +301,12 @@
     hotlines: function () {
       return request("GET", "public/hotlines").then(function (res) {
         return res.data || [];
+      });
+    },
+
+    about: function () {
+      return request("GET", "public/about").then(function (res) {
+        return res.data || { content: {}, people: [] };
       });
     },
 
