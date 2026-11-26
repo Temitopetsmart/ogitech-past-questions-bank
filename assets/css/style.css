@@ -765,10 +765,29 @@ h3 {
   line-height: 1.35;
 }
 
+.leadership-qualifications {
+  margin: 0.8rem 0 1rem;
+  font-size: 0.88rem;
+}
+.leadership-qualifications > strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--text);
+}
+.leadership-qualifications ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--muted);
+}
 .leadership-message {
   padding-top: 1rem;
   border-top: 1px solid var(--line);
   text-align: left;
+}
+.leadership-message-label {
+  display: block;
+  color: var(--text);
+  font-size: 0.95rem;
 }
 
 .leadership-quote {
