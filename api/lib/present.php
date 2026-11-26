@@ -52,11 +52,13 @@ function question_filters(array $in, bool $admin): array
     if (!$admin) $where[] = 'q.is_published = 1';
     foreach (['department' => 'q.department_id', 'programme' => 'q.programme_id', 'level' => 'q.level_id', 'semester' => 'q.semester_id', 'session' => 'q.session_id', 'year' => 'q.exam_year'] as $k => $col) {
         if (isset($in[$k]) && $in[$k] !== '') {
+            if (!is_scalar($in[$k])) fail(400, 'bad_filter', "Invalid $k filter.");
             $n = filter_var($in[$k], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             if ($n === false) fail(400, 'bad_filter', "Invalid $k filter.");
             $where[] = "$col = ?"; $args[] = $n;
         }
     }
+    if (isset($in['featured']) && !is_scalar($in['featured'])) fail(400, 'bad_filter', 'Invalid featured filter.');
     if (!empty($in['featured']) && $in['featured'] !== '0') $where[] = 'q.is_featured = 1';
     if ($admin && !empty($in['status'])) {
         if (!is_string($in['status'])) fail(400, 'bad_filter', 'Invalid status filter.');
