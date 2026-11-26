@@ -11,7 +11,7 @@
     "Departments",
     function (root) {
       return A.loadStructure().then(function () {
-        list(root);
+        return list(root);
       });
     },
     { icon: "fa-building", roles: ["main"], group: "admin" },
@@ -43,7 +43,7 @@
   function saved(res, root, msg) {
     A.setStructure(res);
     if (msg) A.notify(msg);
-    list(root);
+    list(root).catch(A.handleError);
   }
 
   function list(root) {
