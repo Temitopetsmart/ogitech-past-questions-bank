@@ -116,6 +116,7 @@
     var current = item || {
       name: "",
       position: "",
+      qualifications: "",
       message: "",
       visible: true,
     };
@@ -143,14 +144,32 @@
         required: true,
       }),
 
+      position: A.field({
+        id: "leader-position",
+        label: "Position / Office",
+        value: current.position,
+        maxlength: 120,
+        required: true,
+        hint: "Enter the office only, e.g. Rector or SUG President. The page generates the message heading automatically.",
+      }),
+
+      qualifications: A.field({
+        id: "leader-qualifications",
+        label: "Qualifications",
+        type: "textarea",
+        value: current.qualifications || "",
+        rows: 4,
+        hint: "Optional. Enter one qualification per line, e.g. B.Sc., M.Sc., Ph.D.",
+      }),
+
       message: A.field({
         id: "leader-message",
-        label: "Message",
+        label: "Approved message",
         type: "textarea",
         value: current.message,
         rows: 7,
         required: true,
-        hint: "Enter the approved message to display below the leader's name.",
+        hint: "Enter the approved message to display under the automatically generated position heading.",
       }),
 
       visible: A.field({
@@ -220,7 +239,11 @@
 
     var form = h("form", { class: "qform", novalidate: "" }, [
       A.card("Profile details", [
-        h("div", { class: "formgrid" }, [fields.name.wrap]),
+        h("div", { class: "formgrid" }, [
+          fields.name.wrap,
+          fields.position.wrap,
+        ]),
+        fields.qualifications.wrap,
         fields.message.wrap,
         fields.visible.wrap,
       ]),
@@ -245,12 +268,15 @@
       e.preventDefault();
 
       var name = fields.name.get();
+      var position = fields.position.get();
+      var qualifications = fields.qualifications.get();
       var message = fields.message.get();
       var visible = fields.visible.get();
 
       var errors = {};
       if (name.length < 2) errors.name = "Enter the leader's full name.";
-      if (!message) errors.message = "Enter the leadership message.";
+      if (position.length < 2) errors.position = "Enter the leader's position or office.";
+      if (!message) errors.message = "Enter the approved leadership message.";
       if (!A.applyErrors(fields, errors)) {
         A.notify("Please correct the highlighted fields.", "error");
         return;
@@ -265,6 +291,8 @@
 
       var data = new FormData();
       data.append("name", name);
+      data.append("position", position);
+      data.append("qualifications", qualifications);
       data.append("message", message);
       data.append("visible", visible ? "1" : "0");
       if (file) data.append("image", file);
@@ -295,6 +323,8 @@
   function toggleVisibility(root, item) {
     var data = new FormData();
     data.append("name", item.name);
+    data.append("position", item.position || "");
+    data.append("qualifications", item.qualifications || "");
     data.append("message", item.message);
     data.append("visible", item.visible ? "0" : "1");
 
