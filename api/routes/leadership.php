@@ -120,15 +120,12 @@ function leadership_store_image(): string
 
 function pub_leadership(array $p): void
 {
-    $rows = q_all(
-        'SELECT * FROM leadership_profiles
-         WHERE is_visible = 1
-         ORDER BY sort_order, id'
-    );
-
-    json_out([
-        'data' => array_map('leadership_json', $rows)
-    ]);
+    [$page, $per] = pagination_params($_GET, 20, 20);
+    $total = (int)q_val('SELECT COUNT(*) FROM leadership_profiles WHERE is_visible = 1');
+    $meta = pagination_meta($total, $page, $per);
+    $offset = ($page - 1) * $per;
+    $rows = q_all('SELECT * FROM leadership_profiles WHERE is_visible = 1 ORDER BY sort_order, id LIMIT ' . $per . ' OFFSET ' . $offset);
+    json_out(['data' => array_map('leadership_json', $rows), 'meta' => $meta]);
 }
 
 function leadership_stream_image(int $id, bool $visibleOnly): never
@@ -175,13 +172,12 @@ function adm_leadership_image(array $p): never
 
 function adm_leadership_list(array $p): void
 {
-    $rows = q_all(
-        'SELECT * FROM leadership_profiles ORDER BY sort_order, id'
-    );
-
-    json_out([
-        'data' => array_map(fn($r) => leadership_json($r, true), $rows)
-    ]);
+    [$page, $per] = pagination_params($_GET, 10, 10);
+    $total = (int)q_val('SELECT COUNT(*) FROM leadership_profiles');
+    $meta = pagination_meta($total, $page, $per);
+    $offset = ($page - 1) * $per;
+    $rows = q_all('SELECT * FROM leadership_profiles ORDER BY sort_order, id LIMIT ' . $per . ' OFFSET ' . $offset);
+    json_out(['data' => array_map(fn($r) => leadership_json($r, true), $rows), 'meta' => $meta]);
 }
 
 function adm_leadership_save(array $p): void
