@@ -196,7 +196,7 @@ function adm_leadership_save(array $p): void
     $c = new Check(body());
 
     $name = $c->text('name', 'Name', 2, 100);
-    $position = $c->text('position', 'Position', 2, 120);
+    $position = $c->text('position', 'Position', 0, 120);
     $qualifications = $c->text('qualifications', 'Qualifications', 0, 2000, true);
     $message = $c->text('message', 'Message', 10, 5000, true);
     $visible = $c->bool('visible', $old ? (bool)$old['is_visible'] : true);
