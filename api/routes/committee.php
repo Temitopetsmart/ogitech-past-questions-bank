@@ -322,7 +322,12 @@ function adm_member_reorder(array $p): void
 
 function adm_hotlines_list(array $p): void
 {
-    json_out(['data' => array_map('hotline_json', q_all('SELECT * FROM hotlines ORDER BY sort_order, id'))]);
+    [$page, $per] = pagination_params($_GET, 10, 10);
+    $total = (int)q_val('SELECT COUNT(*) FROM hotlines');
+    $meta = pagination_meta($total, $page, $per);
+    $offset = ($page - 1) * $per;
+    $rows = q_all('SELECT * FROM hotlines ORDER BY sort_order, id LIMIT ' . $per . ' OFFSET ' . $offset);
+    json_out(['data' => array_map('hotline_json', $rows), 'meta' => $meta]);
 }
 
 function adm_hotline_save(array $p): void
