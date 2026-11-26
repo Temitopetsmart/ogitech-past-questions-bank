@@ -578,12 +578,36 @@
                 class: "leadership-name",
                 text: name,
               }),
-
+              person.position
+                ? h("p", {
+                    class: "leadership-position",
+                    text: person.position,
+                  })
+                : null,
+              (function () {
+                var qualifications = String(person.qualifications || "")
+                  .split(/\\r?\\n/)
+                  .map(function (value) { return value.trim(); })
+                  .filter(Boolean);
+                if (!qualifications.length) return null;
+                return h("div", { class: "leadership-qualifications" }, [
+                  h("strong", { text: "Qualifications" }),
+                  h("ul", {}, qualifications.map(function (value) {
+                    return h("li", { text: value });
+                  })),
+                ]);
+              })(),
               h("div", { class: "leadership-message" }, [
                 h("i", {
                   class: "fa-solid fa-quote-left leadership-quote",
                   "aria-hidden": "true",
                 }),
+                person.position
+                  ? h("strong", {
+                      class: "leadership-message-label",
+                      text: "Message from the " + person.position,
+                    })
+                  : null,
                 h("p", {
                   text: person.message || "",
                 }),
