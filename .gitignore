@@ -4,3 +4,6 @@ storage/questions/*
 node_modules/
 backups/
 storage/sessions/
+# Uploaded public profile images are stored outside source control.
+storage/leadership/*
+storage/committee/*
