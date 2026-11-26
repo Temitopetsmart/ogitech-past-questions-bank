@@ -1,7 +1,8 @@
 /* Academic calendars: upload, publish, edit and delete institution-wide PDFs. */
 (function () {
   var A = OGAAdmin,
-    h = A.h;
+    h = A.h,
+    page = 1;
 
   A.register(
     "calendars",
@@ -39,7 +40,7 @@
       h("p", { class: "loading" }, [A.spinner(), " Loading calendars…"]),
     );
 
-    return A.api("GET", "admin/calendars").then(
+    return A.api("GET", "admin/calendars", { query: { page: page } }).then(
       function (res) {
         A.clear(box);
         var rows = res.data || [];
@@ -138,6 +139,8 @@
             ]),
           );
         });
+        var pager = A.pagination(res.meta, function (nextPage) { page = nextPage; render(root); });
+        if (pager) root.appendChild(pager);
       },
       function (err) {
         A.clear(box);
