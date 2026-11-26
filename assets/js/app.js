@@ -82,10 +82,47 @@
     clear(hd);
     var page = location.pathname.split("/").pop() || "index.html";
     var nav = h("nav", { class: "nav", id: "nav", "aria-label": "Main" });
-    s.nav.forEach(function (n) {
-      var a = h("a", { href: safeHref(n.href), text: n.label });
-      if (n.href === page) a.setAttribute("aria-current", "page");
-      nav.appendChild(a);
+
+    function addLink(parent, item, className) {
+      var a = h("a", { href: safeHref(item.href), text: item.label });
+      if (item.href === page) a.setAttribute("aria-current", "page");
+      if (className) a.className = className;
+      parent.appendChild(a);
+      return a;
+    }
+
+    s.nav.forEach(function (item) {
+      if (item.items && item.items.length) {
+        var group = h("div", { class: "nav-group" });
+        var toggle = h("button", {
+          type: "button",
+          class: "nav-group-toggle",
+          "aria-expanded": "false",
+        }, [
+          item.label,
+          h("i", { class: "fa-solid fa-chevron-down", "aria-hidden": "true" }),
+        ]);
+        var submenu = h("div", { class: "nav-submenu" });
+        var active = false;
+
+        item.items.forEach(function (child) {
+          if (child.href === page) active = true;
+          addLink(submenu, child);
+        });
+        if (active) {
+          toggle.classList.add("has-current");
+          toggle.setAttribute("aria-label", item.label + ", current page inside");
+        }
+        toggle.addEventListener("click", function () {
+          var open = group.classList.toggle("open");
+          toggle.setAttribute("aria-expanded", String(open));
+        });
+        group.appendChild(toggle);
+        group.appendChild(submenu);
+        nav.appendChild(group);
+      } else {
+        addLink(nav, item, item.href === "request-question.html" ? "nav-cta" : "");
+      }
     });
 
     var btn = h("button", {
@@ -95,9 +132,7 @@
       "aria-controls": "nav",
       "aria-label": "Open menu",
     });
-
     btn.innerHTML = '<i class="fa-solid fa-bars" aria-hidden="true"></i>';
-
     btn.addEventListener("click", function () {
       var open = nav.classList.toggle("open");
       btn.setAttribute("aria-expanded", String(open));
@@ -106,6 +141,26 @@
         ? '<i class="fa-solid fa-xmark" aria-hidden="true"></i>'
         : '<i class="fa-solid fa-bars" aria-hidden="true"></i>';
     });
+
+    document.addEventListener("click", function (event) {
+      if (!nav.contains(event.target)) {
+        nav.querySelectorAll(".nav-group.open").forEach(function (group) {
+          group.classList.remove("open");
+          var control = group.querySelector(".nav-group-toggle");
+          if (control) control.setAttribute("aria-expanded", "false");
+        });
+      }
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        nav.querySelectorAll(".nav-group.open").forEach(function (group) {
+          group.classList.remove("open");
+          var control = group.querySelector(".nav-group-toggle");
+          if (control) control.setAttribute("aria-expanded", "false");
+        });
+      }
+    });
+
     var brand = h("a", { class: "brand", href: "index.html" }, [
       logo(s),
       h("span", {}, [
@@ -133,7 +188,6 @@
     ]);
     hd.appendChild(h("div", { class: "wrap" }, [bar, nav]));
   }
-
   function icon(cls) {
     return h("i", { class: "fa-solid " + cls, "aria-hidden": "true" });
   }
@@ -159,10 +213,16 @@
       });
     }
 
-    s.nav.forEach(function (n) {
-      if (/request-question/.test(n.href)) return; /* lives under Support */
-      add(explore, h("a", { href: safeHref(n.href), text: n.label }));
-    });
+    function addFooterLinks(items) {
+      items.forEach(function (item) {
+        if (item.items && item.items.length) {
+          addFooterLinks(item.items);
+        } else if (!/request-question/.test(item.href)) {
+          add(explore, h("a", { href: safeHref(item.href), text: item.label }));
+        }
+      });
+    }
+    addFooterLinks(s.nav);
     if (L.school) add(explore, ext(L.school, "School website"));
     if (L.sug) add(explore, ext(L.sug, "SUG website"));
 
