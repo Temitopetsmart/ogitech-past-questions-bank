@@ -39,6 +39,7 @@
         term = res.term,
         items = res.data || [],
         pageMeta = res.meta;
+      page = pageMeta ? pageMeta.page : page;
       viewTerm = term ? term.id : null;
       A.clear(root);
 
