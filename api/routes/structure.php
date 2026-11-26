@@ -33,7 +33,33 @@ function structure_payload(): array
     return ['departments' => $deps] + $lists;
 }
 
-function adm_structure(array $p): void { json_out(structure_payload()); }
+function adm_structure(array $p): void
+{
+    if (($_GET['list'] ?? '') === 'departments') {
+        [$page, $per] = pagination_params($_GET, 10, 10);
+        $total = (int)q_val('SELECT COUNT(*) FROM departments');
+        $meta = pagination_meta($total, $page, $per);
+        $offset = ($page - 1) * $per;
+        $rows = q_all('SELECT d.*, (SELECT COUNT(*) FROM questions q WHERE q.department_id = d.id) AS qc
+            FROM departments d ORDER BY d.sort_order, d.id LIMIT ' . $per . ' OFFSET ' . $offset);
+        $ids = array_map('intval', array_column($rows, 'id'));
+        $links = [];
+        if ($ids) {
+            $links = q_all('SELECT department_id, programme_id FROM department_programmes WHERE department_id IN (' . implode(',', $ids) . ')');
+        }
+        $data = array_map(function ($d) use ($links) {
+            return [
+                'id' => (int)$d['id'], 'name' => $d['name'], 'description' => $d['description'],
+                'visible' => (bool)$d['is_visible'], 'order' => (int)$d['sort_order'],
+                'questionCount' => (int)$d['qc'],
+                'programmeIds' => array_values(array_map(fn($l) => (int)$l['programme_id'],
+                    array_filter($links, fn($l) => (int)$l['department_id'] === (int)$d['id']))),
+            ];
+        }, $rows);
+        json_out(['data' => $data, 'meta' => $meta]);
+    }
+    json_out(structure_payload());
+}
 
 function next_order(string $table): int { return (int)q_val("SELECT COALESCE(MAX(sort_order), 0) + 1 FROM $table"); }
 
