@@ -3,7 +3,8 @@
   "use strict";
 
   var A = OGAAdmin,
-    h = A.h;
+    h = A.h,
+    page = 1;
 
   A.register(
     "hotlines",
@@ -26,7 +27,7 @@
   }
 
   function list(root) {
-    return A.api("GET", "admin/hotlines").then(function (res) {
+    return A.api("GET", "admin/hotlines", { query: { page: page } }).then(function (res) {
       var items = res.data || [];
       A.clear(root);
       root.appendChild(
@@ -136,6 +137,8 @@
         if (i === items.length - 1) b[1].disabled = true;
       });
       root.appendChild(box);
+      var pager = A.pagination(res.meta, function (nextPage) { page = nextPage; reload(root); });
+      if (pager) root.appendChild(pager);
     });
   }
 
