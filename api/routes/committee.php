@@ -401,7 +401,25 @@ function adm_hotline_delete(array $p): void
 function adm_hotline_reorder(array $p): void
 {
     $in = body();
-    if (!is_array($in['ids'] ?? null)) fail(422, 'validation', 'Invalid order.');
-    reorder_rows('hotlines', $in['ids']);
+    $id = filter_var($in['hotlineId'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    $direction = $in['direction'] ?? '';
+    if (!$id || !in_array($direction, ['up', 'down'], true)) fail(422, 'validation', 'Choose a valid hotline and move direction.');
+    $ids = array_map('intval', array_column(q_all('SELECT id FROM hotlines ORDER BY sort_order, id'), 'id'));
+    $index = array_search($id, $ids, true);
+    if ($index === false) fail(404, 'not_found', 'Hotline not found.');
+    $target = $index + ($direction === 'up' ? -1 : 1);
+    if ($target < 0 || $target >= count($ids)) fail(409, 'edge', 'This hotline is already at the end of the list.');
+    $swap = $ids[$target];
+    $ids[$target] = $ids[$index];
+    $ids[$index] = $swap;
+    $pdo = db();
+    $pdo->beginTransaction();
+    try {
+        foreach ($ids as $position => $rowId) q('UPDATE hotlines SET sort_order = ? WHERE id = ?', [$position + 1, $rowId]);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
     json_out(['ok' => true]);
 }
