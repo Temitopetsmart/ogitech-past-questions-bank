@@ -446,6 +446,49 @@
     });
     return dl;
   };
+  /* Responsive numbered pagination shared by all admin tables. */
+  A.pagination = function (meta, onPage) {
+    if (!meta || meta.pages <= 1) return null;
+    var nav = h("nav", {
+      class: "table-pagination",
+      "aria-label": "Table pages",
+    });
+    var summary = h("p", {
+      class: "muted pagination-summary",
+      text: "Showing " + meta.from + "–" + meta.to + " of " + meta.total,
+    });
+    var controls = h("div", { class: "pagination-controls" });
+    var prev = A.btn("Previous", "fa-chevron-left", "ghost sm", function () {
+      onPage(meta.page - 1);
+    });
+    prev.disabled = meta.page <= 1;
+    controls.appendChild(prev);
+    var start = Math.max(1, meta.page - 2);
+    var end = Math.min(meta.pages, start + 4);
+    start = Math.max(1, end - 4);
+    for (var n = start; n <= end; n++) {
+      (function (number) {
+        var b = A.btn(String(number), null, "ghost sm page-number" + (number === meta.page ? " current" : ""), function () {
+          onPage(number);
+        });
+        b.setAttribute("aria-label", "Page " + number);
+        if (number === meta.page) {
+          b.disabled = true;
+          b.setAttribute("aria-current", "page");
+        }
+        controls.appendChild(b);
+      })(n);
+    }
+    var next = A.btn("Next", "fa-chevron-right", "ghost sm", function () {
+      onPage(meta.page + 1);
+    });
+    next.disabled = meta.page >= meta.pages;
+    controls.appendChild(next);
+    nav.appendChild(summary);
+    nav.appendChild(controls);
+    return nav;
+  };
+
   A.fileSize = function (n) {
     return n >= 1048576
       ? (n / 1048576).toFixed(1) + " MB"
