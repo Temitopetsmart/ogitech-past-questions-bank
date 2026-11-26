@@ -34,7 +34,7 @@ function pub_meta(array $p): void
 
 function pub_questions(array $p): void
 {
-    json_out(question_list($_GET, false, 12, 50));
+    json_out(question_list($_GET, false, 20, 20));
 }
 
 function pub_question(array $p): void
