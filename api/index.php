@@ -25,6 +25,7 @@ dispatch([
 
     // Admin leadership management
     ['GET', '/admin/leadership', 'adm_leadership_list', 'admin'],
+    ['GET', '/admin/leadership/{id}/image', 'adm_leadership_image', 'admin'],
     ['POST', '/admin/leadership', 'adm_leadership_save', 'admin'],
     ['POST', '/admin/leadership/{id}', 'adm_leadership_save', 'admin'],
     ['DELETE', '/admin/leadership/{id}', 'adm_leadership_delete', 'admin'],
