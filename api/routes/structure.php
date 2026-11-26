@@ -72,7 +72,16 @@ function dept_input(?int $selfId): array
     $desc = $c->text('description', 'Description', 0, 200);
     $vis = $c->bool('visible', true);
     $ids = $in['programmeIds'] ?? null;
-    if (!is_array($ids) || !$ids) $c->errors['programmeIds'] = 'Choose at least one programme.';
+    if (!is_array($ids) || !$ids) {
+        $c->errors['programmeIds'] = 'Choose at least one programme.';
+    } else {
+        foreach ($ids as $value) {
+            if (!is_scalar($value) || filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) === false) {
+                $c->errors['programmeIds'] = 'Choose valid programmes from the list.';
+                break;
+            }
+        }
+    }
     $c->done();
     $ids = array_values(array_unique(array_map('intval', $ids)));
     $found = (int)q_val('SELECT COUNT(*) FROM programmes WHERE id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')', $ids);
