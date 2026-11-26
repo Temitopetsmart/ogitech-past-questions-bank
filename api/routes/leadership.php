@@ -8,6 +8,8 @@ function leadership_json(array $r): array
     return [
         'id' => (int)$r['id'],
         'name' => $r['name'],
+        'position' => $r['position'],
+        'qualifications' => $r['qualifications'] ?? '',
         'message' => $r['message'],
         'imageUrl' => 'api/public/leadership/' . (int)$r['id'] . '/image',
         'visible' => (bool)$r['is_visible'],
@@ -194,6 +196,8 @@ function adm_leadership_save(array $p): void
     $c = new Check(body());
 
     $name = $c->text('name', 'Name', 2, 100);
+    $position = $c->text('position', 'Position', 2, 120);
+    $qualifications = $c->text('qualifications', 'Qualifications', 0, 2000, true);
     $message = $c->text('message', 'Message', 10, 5000, true);
     $visible = $c->bool('visible', $old ? (bool)$old['is_visible'] : true);
 
@@ -214,16 +218,16 @@ function adm_leadership_save(array $p): void
             if ($newImage) {
                 q(
                     'UPDATE leadership_profiles
-                     SET name = ?, message = ?, photo_path = ?, is_visible = ?
+                     SET name = ?, position = ?, qualifications = ?, message = ?, photo_path = ?, is_visible = ?
                      WHERE id = ?',
-                    [$name, $message, $newImage, $visible ? 1 : 0, $id]
+                    [$name, $position, $qualifications, $message, $newImage, $visible ? 1 : 0, $id]
                 );
             } else {
                 q(
                     'UPDATE leadership_profiles
-                     SET name = ?, message = ?, is_visible = ?
+                     SET name = ?, position = ?, qualifications = ?, message = ?, is_visible = ?
                      WHERE id = ?',
-                    [$name, $message, $visible ? 1 : 0, $id]
+                    [$name, $position, $qualifications, $message, $visible ? 1 : 0, $id]
                 );
             }
 
@@ -236,9 +240,9 @@ function adm_leadership_save(array $p): void
 
             q(
                 'INSERT INTO leadership_profiles
-                 (name, message, photo_path, is_visible, sort_order)
-                 VALUES (?, ?, ?, ?, ?)',
-                [$name, $message, $newImage, $visible ? 1 : 0, $order]
+                 (name, position, qualifications, message, photo_path, is_visible, sort_order)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [$name, $position, $qualifications, $message, $newImage, $visible ? 1 : 0, $order]
             );
 
             $newId = (int)db()->lastInsertId();
