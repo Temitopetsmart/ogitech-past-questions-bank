@@ -2,6 +2,7 @@
 (function () {
   var h = OGAUI.h,
     box = document.getElementById("committee");
+  var currentPage = 1;
 
   function initials(name) {
     return String(name || "")
@@ -106,6 +107,7 @@
       });
       sel.value = String(res.term.id);
       sel.addEventListener("change", function () {
+        currentPage = 1;
         load(sel.value);
       });
       head.appendChild(
@@ -122,6 +124,34 @@
     });
     box.appendChild(head);
     box.appendChild(grid);
+    var meta = res.meta || { page: 1, pages: 1, total: res.data.length, from: 1, to: res.data.length };
+    if (meta.pages > 1) {
+      var nav = h("nav", { class: "pagination", "aria-label": "Executive pages" });
+      var summary = h("p", { class: "muted pagination-status", text: "Showing " + meta.from + "–" + meta.to + " of " + meta.total + " executives" });
+      var pages = h("div", { class: "pagination-pages" });
+      var prev = h("button", { type: "button", class: "btn alt", text: "Previous" });
+      prev.disabled = meta.page <= 1;
+      prev.addEventListener("click", function () { currentPage = meta.page - 1; load(res.term.id); });
+      var next = h("button", { type: "button", class: "btn", text: "Next" });
+      next.disabled = meta.page >= meta.pages;
+      next.addEventListener("click", function () { currentPage = meta.page + 1; load(res.term.id); });
+      var first = Math.max(1, meta.page - 2), last = Math.min(meta.pages, first + 4);
+      first = Math.max(1, last - 4);
+      for (var n = first; n <= last; n++) {
+        (function (number) {
+          var b = h("button", { type: "button", class: "btn page-number" + (number === meta.page ? " current" : ""), text: String(number) });
+          b.disabled = number === meta.page;
+          if (b.disabled) b.setAttribute("aria-current", "page");
+          b.addEventListener("click", function () { currentPage = number; load(res.term.id); });
+          pages.appendChild(b);
+        })(n);
+      }
+      nav.appendChild(summary);
+      nav.appendChild(prev);
+      nav.appendChild(pages);
+      nav.appendChild(next);
+      box.appendChild(nav);
+    }
   }
 
   function load(termId) {
@@ -129,7 +159,7 @@
     box.appendChild(
       h("p", { class: "muted", role: "status", text: "Loading…" }),
     );
-    OGA.committee(termId).then(render, function () {
+    OGA.committee(termId, currentPage).then(function (res) { currentPage = res.meta ? res.meta.page : 1; render(res); }, function () {
       var retry = h("button", {
         type: "button",
         class: "btn sm",
