@@ -59,6 +59,7 @@ function question_filters(array $in, bool $admin): array
     }
     if (!empty($in['featured']) && $in['featured'] !== '0') $where[] = 'q.is_featured = 1';
     if ($admin && !empty($in['status'])) {
+        if (!is_string($in['status'])) fail(400, 'bad_filter', 'Invalid status filter.');
         match ($in['status']) {
             'published' => $where[] = 'q.is_published = 1',
             'draft'     => $where[] = 'q.is_published = 0',
@@ -97,12 +98,15 @@ function question_list(array $in, bool $admin, int $defaultPer, int $maxPer): ar
     [$where, $args] = question_filters($in, $admin);
     $w = $where ? ' WHERE ' . implode(' AND ', $where) : '';
     [$page, $per] = pagination_params($in, $defaultPer, $maxPer);
-    $order = match ($in['sort'] ?? 'recent') {
-        'popular' => 'q.view_count DESC, q.created_at DESC',
-        'year'    => 'q.exam_year DESC, q.course_code ASC',
-        'code'    => 'q.course_code ASC, q.exam_year DESC',
-        'updated' => 'q.updated_at DESC',
-        default   => 'q.created_at DESC, q.id DESC',
+    $sort = $in['sort'] ?? 'recent';
+    if (!is_string($sort)) fail(400, 'bad_sort', 'Invalid sorting option.');
+    $order = match ($sort) {
+        'popular' => 'q.view_count DESC, q.created_at DESC, q.id DESC',
+        'year'    => 'q.exam_year DESC, q.course_code ASC, q.id DESC',
+        'code'    => 'q.course_code ASC, q.exam_year DESC, q.id DESC',
+        'updated' => 'q.updated_at DESC, q.id DESC',
+        'recent'  => 'q.created_at DESC, q.id DESC',
+        default   => fail(400, 'bad_sort', 'Invalid sorting option.'),
     };
     $from = substr(QUESTION_SELECT, strpos(QUESTION_SELECT, 'FROM questions'));
     $total = (int)q_val('SELECT COUNT(*) ' . $from . $w, $args);
