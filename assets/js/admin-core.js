@@ -448,7 +448,7 @@
   };
   /* Responsive numbered pagination shared by all admin tables. */
   A.pagination = function (meta, onPage) {
-    if (!meta || meta.pages <= 1) return null;
+    if (!meta) return null;
     var nav = h("nav", {
       class: "table-pagination",
       "aria-label": "Table pages",
