@@ -215,12 +215,25 @@ final class Check
         if (!array_key_exists($k, $this->in)) return $default;
         $v = $this->in[$k];
         if (is_bool($v)) return $v;
-        return in_array(strtolower((string)$v), ['1', 'true', 'on', 'yes'], true);
+        if (!is_scalar($v)) {
+            $this->errors[$k] = 'Choose a valid yes or no value.';
+            return $default;
+        }
+        $value = strtolower(trim((string)$v));
+        if (in_array($value, ['1', 'true', 'on', 'yes'], true)) return true;
+        if (in_array($value, ['0', 'false', 'off', 'no', ''], true)) return false;
+        $this->errors[$k] = 'Choose a valid yes or no value.';
+        return $default;
     }
 
     public function year(string $k, bool $required): ?int
     {
-        $v = trim((string)($this->in[$k] ?? ''));
+        $raw = $this->in[$k] ?? '';
+        if (!is_scalar($raw)) {
+            $this->errors[$k] = 'Enter a valid four-digit year.';
+            return null;
+        }
+        $v = trim((string)$raw);
         if ($v === '') {
             if ($required) $this->errors[$k] = 'Examination year is required.';
             return null;
