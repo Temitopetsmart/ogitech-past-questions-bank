@@ -27,7 +27,12 @@ function users_input(?array $existing): array
 
 function users_list(array $p): void
 {
-    json_out(['data' => array_map('user_json', q_all('SELECT * FROM admin_users ORDER BY created_at, id'))]);
+    [$page, $per] = pagination_params($_GET, 10, 10);
+    $total = (int)q_val('SELECT COUNT(*) FROM admin_users');
+    $meta = pagination_meta($total, $page, $per);
+    $offset = ($page - 1) * $per;
+    $rows = q_all('SELECT * FROM admin_users ORDER BY created_at, id LIMIT ' . $per . ' OFFSET ' . $offset);
+    json_out(['data' => array_map('user_json', $rows), 'meta' => $meta]);
 }
 
 /** Guard: after a change there must still be at least one active Main Admin. */
