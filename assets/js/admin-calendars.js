@@ -43,6 +43,7 @@
     return A.api("GET", "admin/calendars", { query: { page: page } }).then(
       function (res) {
         A.clear(box);
+        page = res.meta ? res.meta.page : page;
         var rows = res.data || [];
 
         if (!rows.length) {
