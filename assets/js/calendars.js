@@ -47,7 +47,7 @@
 
         if (!calendars.length) {
           empty(
-            "No academic calendars available",
+            "No academic calendars are available",
             "Published academic calendars will appear here when they are uploaded.",
           );
           return;

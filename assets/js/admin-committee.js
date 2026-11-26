@@ -9,7 +9,7 @@
 
   A.register(
     "committee",
-    "Committee",
+    "Executives",
     function (root) {
       return list(root);
     },
@@ -51,7 +51,7 @@
                 })
               : null,
             A.btn(
-              "New Session",
+              "New Administration",
               "fa-calendar-plus",
               term ? "ghost" : "primary",
               function () {
@@ -260,32 +260,37 @@
   }
 
   function newTerm(root) {
-    A.prompt("New Session (e.g. 2026/2027)", "", termCheck, function (label) {
-      A.api("POST", "admin/committee/terms", { json: { label: label } }).then(
-        function (res) {
-          var t = res.data;
-          viewTerm = t.id;
-          A.notify("Term created.");
-          if (t.current) return reload(root);
-          A.confirm(
-            "Make " + t.label + " the Current Executives?",
-            "Choose Cancel to keep showing the present committee while you add members.",
-            "Make current",
-            function () {
-              A.api("POST", "admin/committee/terms/" + t.id + "/current").then(
-                function () {
+    A.prompt(
+      "New Administration (e.g. 2026/2027)",
+      "",
+      termCheck,
+      function (label) {
+        A.api("POST", "admin/committee/terms", { json: { label: label } }).then(
+          function (res) {
+            var t = res.data;
+            viewTerm = t.id;
+            A.notify("Term created.");
+            if (t.current) return reload(root);
+            A.confirm(
+              "Make " + t.label + " the Current Executives?",
+              "Choose Cancel to keep showing the current executives while you add members.",
+              "Make current",
+              function () {
+                A.api(
+                  "POST",
+                  "admin/committee/terms/" + t.id + "/current",
+                ).then(function () {
                   reload(root);
-                },
-                A.handleError,
-              );
-            },
-            false,
-          );
-          reload(root);
-        },
-        A.handleError,
-      );
-    });
+                }, A.handleError);
+              },
+              false,
+            );
+            reload(root);
+          },
+          A.handleError,
+        );
+      },
+    );
   }
 
   function move(root, term, items, i, d) {

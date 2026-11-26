@@ -193,7 +193,9 @@
         }
         if (firstBad) return $(firstBad).focus();
         UI.clear(box);
-        box.appendChild(h("h2", { text: "Your request was not sent" }));
+        box.appendChild(
+          h("h2", { text: "Your question request could not be sent" }),
+        );
         box.appendChild(h("p", { text: err.message || "Please try again." }));
         box.hidden = false;
         box.focus();

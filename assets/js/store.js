@@ -23,7 +23,7 @@
       metaDescription:
         "Past examination questions for students of Ogun State Institute of Technology, Igbesa.",
       footerText:
-        "An academic resource for OGITECH students. Not necessarily an official institutional website unless confirmed.",
+        "A student-focused academic resource for OGITECH students to find and revise past examination questions.",
       copyright: "© 2026 OGITECH SUG Past Questions Bank.",
       contact: { email: "", phone: "", address: "Igbesa, Ogun State, Nigeria" },
       social: [],
@@ -52,40 +52,8 @@
         secondaryHref: "browse.html",
       },
     ],
-    announcements: [
-      {
-        id: "a1",
-        title: "Sample: Past questions bank prototype",
-        summary:
-          "Demonstration content. Replace with a real academic update from the admin panel.",
-        content: "",
-        image: "",
-        date: "2026-10-01",
-        published: true,
-        featured: true,
-      },
-    ],
-    /* Replace name, message and photo below with the approved text and images. */
-    leadership: {
-      rector: {
-        heading: "Message from the Rector",
-        visible: true,
-        name: "",
-        title: "Rector",
-        photo: "assets/images/logo.png",
-        message:
-          "Placeholder. An approved message from the Rector will appear here once supplied.",
-      },
-      sug: {
-        heading: "Meet the SUG leadership",
-        visible: true,
-        name: "",
-        title: "SUG President",
-        photo: "assets/images/logo.png",
-        message:
-          "Placeholder. An approved introduction to the SUG leadership and this academic resource initiative will appear here.",
-      },
-    },
+    announcements: [],
+
     about: {
       heading: "About the Past Questions Bank",
       intro:
@@ -93,7 +61,6 @@
       paragraphs: [
         "Choose your department, programme, level and semester, or search by course code or title, then open a question to preview or download it.",
         "Studying past questions helps you see how topics are examined and how to manage your time. Use them alongside your lecture notes, not instead of them.",
-        "This is a student initiative. Sample content is marked as such until approved material is supplied.",
       ],
       feedback:
         "Cannot find a question? Send a request and tell us the course and year you need.",
@@ -140,14 +107,14 @@
         id: "leadership",
         enabled: true,
         heading: "From the leadership",
-        description: "Sample content until approved text is supplied",
+        description: "Updates from OGITECH leadership",
         limit: 2,
       },
       {
         id: "announcements",
-        enabled: true,
+        enabled: false,
         heading: "Announcements",
-        description: "Sample content",
+        description: "",
         limit: 3,
       },
     ],

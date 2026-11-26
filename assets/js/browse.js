@@ -180,7 +180,7 @@
     UI.clear(el.results);
     el.results.appendChild(
       h("div", { class: "empty", role: "alert" }, [
-        h("h3", { text: "Questions could not be loaded" }),
+        h("h3", { text: "Past questions could not be loaded" }),
         h("p", { text: message }),
         retry,
       ]),

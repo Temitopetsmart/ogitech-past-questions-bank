@@ -19,14 +19,6 @@
     (a.paragraphs || []).forEach(function (t) {
       box.appendChild(h("p", { text: t }));
     });
-    var sug = OGA.get().leadership.sug;
-    if (sug && sug.visible)
-      box.appendChild(
-        h("div", { class: "card", style: "margin:1.25rem 0" }, [
-          h("h2", { text: sug.heading }),
-          h("p", { text: sug.message }),
-        ]),
-      );
     var c = (s || OGA.getSettings()).contact || {};
     box.appendChild(h("p", { text: a.feedback }));
     var acts = h("p", {}, [

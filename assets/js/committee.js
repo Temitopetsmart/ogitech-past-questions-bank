@@ -1,4 +1,4 @@
-/* Public "Meet the Committee" page. Everything shown here is managed in the admin. */
+/* Public executives page. All displayed information is managed through the admin panel. */
 (function () {
   var h = OGAUI.h,
     box = document.getElementById("committee");
@@ -140,7 +140,7 @@
       });
       message(
         "fa-triangle-exclamation",
-        "Could not load the committee",
+        "Could not load the executives",
         "Check your connection and try again.",
         retry,
       );
