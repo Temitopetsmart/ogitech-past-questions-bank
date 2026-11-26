@@ -186,7 +186,11 @@ final class Check
         $v = (string)$v;
         if (!mb_check_encoding($v, 'UTF-8')) { $this->errors[$k] = "$label has invalid characters."; return ''; }
         $v = clean($v, $multi);
-        if (!$multi && preg_match('/[<>]/', $v)) { $this->errors[$k] = "$label cannot contain < or > characters."; return $v; }
+        // Store plain text only. Multiline fields (messages/notes) must not accept HTML or script markup either.
+        if (preg_match('/[<>]/', $v)) {
+            $this->errors[$k] = "$label must be plain text and cannot contain HTML markup.";
+            return $v;
+        }
         $len = mb_strlen($v);
         if ($len === 0 && $min > 0) $this->errors[$k] = "$label is required.";
         elseif ($len > 0 && $len < $min) $this->errors[$k] = "$label must be at least $min characters.";
@@ -256,6 +260,41 @@ final class Check
 
 /** Validate an ID path parameter. */
 function path_id(array $p): int { return (int)($p['id'] ?? 0); }
+
+/** Parse bounded pagination values; never interpolate raw request input into SQL. */
+function pagination_params(array $in, int $defaultPerPage, int $maxPerPage): array
+{
+    $rawPage = $in['page'] ?? '1';
+    if (!is_scalar($rawPage) || !preg_match('/^[1-9][0-9]{0,7}$/', (string)$rawPage)) {
+        fail(400, 'bad_page', 'Page must be a positive whole number.');
+    }
+    $page = (int)$rawPage;
+    $perPage = $defaultPerPage;
+    if (isset($in['perPage']) && $in['perPage'] !== '') {
+        if (!is_scalar($in['perPage']) || !preg_match('/^[1-9][0-9]{0,3}$/', (string)$in['perPage'])) {
+            fail(400, 'bad_page_size', 'Page size must be a positive whole number.');
+        }
+        $perPage = min($maxPerPage, (int)$in['perPage']);
+    }
+    $perPage = max(1, min($maxPerPage, $perPage));
+    return [$page, $perPage];
+}
+
+function pagination_meta(int $total, int &$page, int $perPage): array
+{
+    $pages = max(1, (int)ceil($total / $perPage));
+    $page = min(max(1, $page), $pages);
+    $from = $total > 0 ? (($page - 1) * $perPage) + 1 : 0;
+    $to = $total > 0 ? min($total, $page * $perPage) : 0;
+    return [
+        'total' => $total,
+        'page' => $page,
+        'perPage' => $perPage,
+        'pages' => $pages,
+        'from' => $from,
+        'to' => $to,
+    ];
+}
 
 /* ---------- Throttling ---------- */
 function rl_count(string $action, string $subject, int $windowSec): int
