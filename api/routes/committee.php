@@ -101,14 +101,16 @@ function pub_committee(array $p): void
     $term = $terms[0];                     // current term first, else newest
     foreach ($terms as $t) if ((int)$t['id'] === $want) { $term = $t; break; }
 
-    $rows = q_all(
-        'SELECT * FROM committee_members WHERE term_id = ? AND is_visible = 1 ORDER BY sort_order, id',
-        [(int)$term['id']]
-    );
+    [$page, $per] = pagination_params($_GET, 20, 20);
+    $total = (int)q_val('SELECT COUNT(*) FROM committee_members WHERE term_id = ? AND is_visible = 1', [(int)$term['id']]);
+    $meta = pagination_meta($total, $page, $per);
+    $offset = ($page - 1) * $per;
+    $rows = q_all('SELECT * FROM committee_members WHERE term_id = ? AND is_visible = 1 ORDER BY sort_order, id LIMIT ' . $per . ' OFFSET ' . $offset, [(int)$term['id']]);
     json_out([
         'terms' => array_map('term_json', $terms),
         'term' => term_json($term),
         'data' => array_map('member_json', $rows),
+        'meta' => $meta,
     ]);
 }
 
@@ -151,13 +153,18 @@ function adm_committee_list(array $p): void
     foreach ($terms as $t) if ((int)$t['id'] === $want) $term = $t;
     if (!$term && $terms) $term = $terms[0];
 
+    [$page, $per] = pagination_params($_GET, 10, 10);
+    $total = $term ? (int)q_val('SELECT COUNT(*) FROM committee_members WHERE term_id = ?', [(int)$term['id']]) : 0;
+    $meta = pagination_meta($total, $page, $per);
+    $offset = ($page - 1) * $per;
     $rows = $term
-        ? q_all('SELECT * FROM committee_members WHERE term_id = ? ORDER BY sort_order, id', [(int)$term['id']])
+        ? q_all('SELECT * FROM committee_members WHERE term_id = ? ORDER BY sort_order, id LIMIT ' . $per . ' OFFSET ' . $offset, [(int)$term['id']])
         : [];
     json_out([
         'terms' => array_map('term_json', $terms),
         'term' => $term ? term_json($term) : null,
         'data' => array_map('member_json', $rows),
+        'meta' => $meta,
     ]);
 }
 
