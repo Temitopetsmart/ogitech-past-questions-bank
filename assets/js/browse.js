@@ -9,7 +9,7 @@
 
   var UI = OGAUI;
   var h = UI.h;
-  var PAGE_SIZE = 6;
+  var PAGE_SIZE = 20;
   var page = 1;
   var pageCount = 1;
   var meta = null;
@@ -35,6 +35,7 @@
     prev: $("prev-page"),
     next: $("next-page"),
     pageStatus: $("page-status"),
+    pageNumbers: $("page-numbers"),
     search: $("search-questions"),
   };
 
@@ -209,10 +210,33 @@
       el.count.textContent =
         "Showing " + first + "–" + last + " of " + total + " questions";
     }
-    el.pagination.hidden = total <= PAGE_SIZE;
+    el.pagination.hidden = total === 0;
     el.prev.disabled = page <= 1;
     el.next.disabled = page >= pageCount;
     el.pageStatus.textContent = "Page " + page + " of " + pageCount;
+    UI.clear(el.pageNumbers);
+    var startPage = Math.max(1, page - 2);
+    var endPage = Math.min(pageCount, startPage + 4);
+    startPage = Math.max(1, endPage - 4);
+    for (var n = startPage; n <= endPage; n++) {
+      (function (number) {
+        var button = h("button", {
+          type: "button",
+          class: "btn page-number" + (number === page ? " current" : ""),
+          text: String(number),
+          "aria-label": "Page " + number,
+        });
+        if (number === page) {
+          button.disabled = true;
+          button.setAttribute("aria-current", "page");
+        }
+        button.addEventListener("click", function () {
+          page = number;
+          load();
+        });
+        el.pageNumbers.appendChild(button);
+      })(n);
+    }
     syncUrl();
   }
 
