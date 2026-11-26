@@ -58,11 +58,19 @@ bytes((string)ini_get('memory_limit')) >= 256 * 1048576 ? out('ok', 'memory_limi
 /* Database */
 try { $pdo = db(); out('ok', 'Connected to database "' . config('db.name') . '"'); }
 catch (Throwable $e) { out('fail', 'Database connection failed: ' . $e->getMessage()); exit(1); }
-$need = ['admin_users', 'programmes', 'levels', 'semesters', 'academic_sessions', 'departments', 'department_programmes', 'questions', 'question_requests', 'rate_limits', 'committee_terms', 'committee_members', 'hotlines'];
+$need = ['admin_users', 'programmes', 'levels', 'semesters', 'academic_sessions', 'departments', 'department_programmes', 'questions', 'question_requests', 'rate_limits', 'leadership_profiles', 'committee_terms', 'committee_members', 'hotlines'];
 $have = array_column(q_all('SELECT TABLE_NAME AS t FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()'), 't');
 $missing = array_diff($need, $have);
 $missing ? out('fail', 'Missing tables: ' . implode(', ', $missing) . '. Import database/schema.sql.') : out('ok', 'All tables exist');
 if ($missing) exit(1);
+$leadershipColumns = array_column(q_all(
+    "SELECT COLUMN_NAME AS c FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'leadership_profiles'"
+), 'c');
+$missingLeadershipColumns = array_diff(['position', 'qualifications'], $leadershipColumns);
+$missingLeadershipColumns
+    ? out('fail', 'Leadership table needs the profile-details migration: ' . implode(', ', $missingLeadershipColumns) . '.')
+    : out('ok', 'Leadership profile fields are up to date');
 $grants = implode(' ', array_map('current', q_all('SHOW GRANTS FOR CURRENT_USER()')));
 preg_match('/ALL PRIVILEGES|\bDROP\b|\bCREATE\b|\bALTER\b|GRANT OPTION|SUPER/i', $grants)
     ? out('warn', 'The database user has more than it needs (e.g. ALL/DROP/CREATE/ALTER). Grant only SELECT, INSERT, UPDATE, DELETE.')
@@ -90,6 +98,11 @@ $bk ? (str_starts_with((string)realpath((string)$bk) . '/', $project . '/') ? ou
 
 /* Files vs database */
 $referenced = array_column(q_all('SELECT file_path FROM questions WHERE file_path IS NOT NULL'), 'file_path');
+$leadershipPhotos = array_column(q_all('SELECT photo_path FROM leadership_profiles WHERE photo_path IS NOT NULL'), 'photo_path');
+$missingLeadershipPhotos = array_filter($leadershipPhotos, fn($p) => !is_file("$root/$p"));
+$missingLeadershipPhotos
+    ? out('fail', count($missingLeadershipPhotos) . ' leadership photograph(s) are missing from private storage.')
+    : out('ok', count($leadershipPhotos) . ' leadership photograph(s) all present');
 $refSet = array_flip($referenced);
 $gone = array_filter($referenced, fn($p) => !is_file("$root/$p"));
 $gone ? out('fail', count($gone) . ' question(s) point to PDF files that no longer exist (e.g. ' . reset($gone) . ').') : out('ok', count($referenced) . ' stored PDF(s) all present');
