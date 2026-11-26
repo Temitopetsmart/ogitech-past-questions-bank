@@ -20,6 +20,7 @@
 
   function list(root) {
     return A.api("GET", "admin/leadership", { query: { page: page } }).then(function (res) {
+      page = res.meta ? res.meta.page : page;
       var items = res.data || [];
       A.clear(root);
 
