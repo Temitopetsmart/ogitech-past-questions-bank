@@ -9,7 +9,7 @@ SET @has_position = (
 );
 SET @sql = IF(
     @has_position = 0,
-    'ALTER TABLE leadership_profiles ADD COLUMN position VARCHAR(120) NOT NULL DEFAULT '''' AFTER name',
+    CONCAT('ALTER TABLE leadership_profiles ADD COLUMN position VARCHAR(120) NOT NULL DEFAULT ', CHAR(39), CHAR(39), ' AFTER name'),
     'SELECT 1'
 );
 PREPARE leadership_stmt FROM @sql;
