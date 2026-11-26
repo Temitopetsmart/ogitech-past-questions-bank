@@ -445,12 +445,8 @@
         "Delete question",
         function () {
           A.api("DELETE", "admin/questions/" + x.id).then(function () {
-            rows = rows.filter(function (r) {
-              return r.id !== x.id;
-            });
-            total = Math.max(0, total - 1);
             A.notify("Deleted " + x.courseCode + ".");
-            paint();
+            fetchPage(false);
           }, A.handleError);
         },
       );
