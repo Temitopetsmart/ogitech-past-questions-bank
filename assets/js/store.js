@@ -34,6 +34,7 @@
         { label: "Academic Calendar", href: "academic-calendar.html" },
         { label: "Departments", href: "index.html#departments" },
         { label: "About", href: "about.html" },
+        { label: "Executives", href: "committee.html" },
         { label: "Request a Question", href: "request-question.html" },
       ],
       theme: { green: "#0b5d34", accent: "#c8102e", gold: "#c9a227" },
@@ -323,6 +324,18 @@
     addRequest: function (payload) {
       return request("POST", "public/requests", { json: payload });
     },
+
+    committee: function (termId) {
+      return request("GET", "public/committee", {
+        query: termId ? { term: termId } : null,
+      });
+    },
+    hotlines: function () {
+      return request("GET", "public/hotlines").then(function (res) {
+        return res.data || [];
+      });
+    },
+
     leadership: function () {
       return request("GET", "public/leadership").then(function (res) {
         return res.data || [];

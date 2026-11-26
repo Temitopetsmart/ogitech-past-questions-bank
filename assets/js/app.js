@@ -114,81 +114,142 @@
         h("span", { text: s.siteName }),
       ]),
     ]);
-    var bar = h("div", { class: "bar" }, [brand, btn]);
+    function hotBtn() {
+      var b = h(
+        "button",
+        { type: "button", class: "hot-btn", "aria-label": "Hotlines" },
+        [
+          h("i", { class: "fa-solid fa-phone-volume", "aria-hidden": "true" }),
+          h("span", { class: "hot-label", text: "Hotlines" }),
+        ],
+      );
+      b.addEventListener("click", openHotlines);
+      return b;
+    }
+    nav.appendChild(hotBtn());
+    var bar = h("div", { class: "bar" }, [
+      brand,
+      h("div", { class: "bar-actions" }, [hotBtn(), btn]),
+    ]);
     hd.appendChild(h("div", { class: "wrap" }, [bar, nav]));
+  }
+
+  function icon(cls) {
+    return h("i", { class: "fa-solid " + cls, "aria-hidden": "true" });
   }
 
   function renderFooter(s) {
     var f = $("footer");
     clear(f);
-    var links = h("ul"),
-      social = h("ul"),
-      c = s.contact || {},
+    var c = s.contact || {},
       L = s.links || {};
+    var explore = h("ul", { class: "foot-links" }),
+      support = h("ul", { class: "foot-links" }),
+      contact = h("ul", { class: "foot-contact" });
+
+    function add(list, node) {
+      list.appendChild(h("li", {}, [node]));
+    }
+    function ext(url, label) {
+      return h("a", {
+        href: safeHref(url),
+        rel: "noopener",
+        target: "_blank",
+        text: label,
+      });
+    }
+
     s.nav.forEach(function (n) {
-      links.appendChild(
-        h("li", {}, [h("a", { href: safeHref(n.href), text: n.label })]),
-      );
+      if (/request-question/.test(n.href)) return; /* lives under Support */
+      add(explore, h("a", { href: safeHref(n.href), text: n.label }));
     });
-    if (L.school)
-      links.appendChild(
-        h("li", {}, [
-          h("a", {
-            href: safeHref(L.school),
-            rel: "noopener",
-            target: "_blank",
-            text: "School website",
-          }),
+    if (L.school) add(explore, ext(L.school, "School website"));
+    if (L.sug) add(explore, ext(L.sug, "SUG website"));
+
+    var hot = h("button", { type: "button", class: "foot-link" }, [
+      icon("fa-phone-volume"),
+      "Hotlines",
+    ]);
+    hot.addEventListener("click", openHotlines);
+    add(support, hot);
+    add(
+      support,
+      h("a", { href: "request-question.html" }, [
+        icon("fa-paper-plane"),
+        "Request a question",
+      ]),
+    );
+    if (c.email)
+      add(
+        support,
+        h("a", { href: safeHref("mailto:" + c.email) }, [
+          icon("fa-envelope"),
+          "Send feedback",
         ]),
       );
-    if (L.sug)
-      links.appendChild(
-        h("li", {}, [
-          h("a", {
-            href: safeHref(L.sug),
-            rel: "noopener",
-            target: "_blank",
-            text: "SUG website",
-          }),
-        ]),
-      );
+
+    [
+      ["fa-location-dot", c.address],
+      ["fa-envelope", c.email],
+      ["fa-phone", c.phone],
+    ].forEach(function (r) {
+      if (r[1])
+        contact.appendChild(
+          h("li", {}, [icon(r[0]), h("span", { text: r[1] })]),
+        );
+    });
+    var social = h("div", { class: "foot-social" });
     (s.social || []).forEach(function (x) {
-      social.appendChild(
-        h("li", {}, [
-          h("a", {
-            href: safeHref(x.url),
-            rel: "noopener",
-            target: "_blank",
-            text: x.label,
-          }),
+      social.appendChild(ext(x.url, x.label));
+    });
+
+    var hasContact = contact.children.length > 0;
+    var cols = [
+      h("div", { class: "foot-about" }, [
+        h("a", { class: "brand", href: "index.html" }, [
+          logo(s),
+          h("span", {}, [
+            h("strong", { text: s.shortName }),
+            h("span", { text: s.orgLine }),
+            h("span", { text: s.siteName }),
+          ]),
+        ]),
+        h("p", { text: s.footerText }),
+      ]),
+      h("nav", { "aria-label": "Footer" }, [
+        h("h3", { text: "Explore" }),
+        explore,
+      ]),
+      h("div", {}, [h("h3", { text: "Support" }), support]),
+    ];
+    if (hasContact || social.children.length)
+      cols.push(
+        h("div", {}, [
+          h("h3", { text: "Contact" }),
+          hasContact ? contact : null,
+          social.children.length ? social : null,
         ]),
       );
+
+    var top = h("button", { type: "button", class: "foot-top" }, [
+      "Back to top ",
+      icon("fa-arrow-up"),
+    ]);
+    top.addEventListener("click", function () {
+      window.scrollTo({ top: 0, behavior: "smooth" });
     });
-    var contact = h("ul");
-    [c.email, c.phone, c.address].forEach(function (v) {
-      if (v) contact.appendChild(h("li", { text: v }));
-    });
-    if (!contact.children.length)
-      contact.appendChild(h("li", { text: "Contact details not yet added." }));
+
     f.appendChild(
       h("div", { class: "wrap" }, [
-        h("div", { class: "foot" }, [
-          h("div", {}, [
-            h("h3", { text: s.siteName }),
-            h("p", { text: s.footerText }),
-          ]),
-          h("div", {}, [h("h3", { text: "Quick links" }), links]),
-          h("div", {}, [
-            h("h3", { text: "Contact" }),
-            contact,
-            social.children.length ? social : null,
-          ]),
+        h(
+          "div",
+          { class: "foot" + (cols.length === 3 ? " foot-3" : "") },
+          cols,
+        ),
+        h("div", { class: "foot-bottom" }, [
+          h("p", { text: s.copyright }),
+          top,
         ]),
-        h("p", {
-          class: "muted",
-          text: s.copyright,
-          style: "color:#b8c2bb;margin-top:1.5rem",
-        }),
       ]),
     );
   }
@@ -731,7 +792,140 @@
     }
   }
 
+  /* ---------- Hotlines sheet (opens from the header and the footer; data from the admin) ---------- */
+  var hotDialog = null;
+
+  function fmtPhone(p) {
+    if (/^0\d{10}$/.test(p))
+      return p.replace(/^(\d{4})(\d{3})(\d{4})$/, "$1 $2 $3");
+    if (/^\+234\d{10}$/.test(p))
+      return p.replace(/^(\+234)(\d{3})(\d{3})(\d{4})$/, "$1 $2 $3 $4");
+    return p;
+  }
+  function waNumber(p) {
+    return /^0\d{10}$/.test(p) ? "234" + p.slice(1) : p.replace(/\D/g, "");
+  }
+  function hotItem(x) {
+    var ok = /^\+?\d{7,15}$/.test(x.phone);
+    var info = h("div", { class: "hot-info" }, [
+      h("strong", { text: x.title }),
+      x.holder ? h("span", { class: "hot-holder", text: x.holder }) : null,
+      x.note ? h("span", { class: "hot-note", text: x.note }) : null,
+    ]);
+    var acts = h("div", { class: "hot-actions" });
+    if (ok) {
+      acts.appendChild(
+        h("a", { class: "hot-call", href: "tel:" + x.phone }, [
+          h("i", { class: "fa-solid fa-phone", "aria-hidden": "true" }),
+          h("span", { text: fmtPhone(x.phone) }),
+        ]),
+      );
+      if (x.whatsapp)
+        acts.appendChild(
+          h(
+            "a",
+            {
+              class: "hot-wa",
+              href: "https://wa.me/" + waNumber(x.phone),
+              target: "_blank",
+              rel: "noopener",
+              "aria-label": "WhatsApp " + x.title,
+            },
+            [
+              h("i", { class: "fa-brands fa-whatsapp", "aria-hidden": "true" }),
+              h("span", { text: "WhatsApp" }),
+            ],
+          ),
+        );
+    }
+    return h("li", { class: "hot-item" }, [info, acts]);
+  }
+  function fillHotlines(body) {
+    clear(body);
+    body.appendChild(
+      h("p", { class: "muted", role: "status", text: "Loading hotlines…" }),
+    );
+    OGA.hotlines().then(
+      function (list) {
+        clear(body);
+        if (!list.length) {
+          body.appendChild(
+            h("p", {
+              class: "empty",
+              text: "No hotlines have been added yet.",
+            }),
+          );
+          return;
+        }
+        body.appendChild(
+          h("p", { class: "muted hot-intro", text: "Tap a number to call." }),
+        );
+        var ul = h("ul", { class: "hot-list" });
+        list.forEach(function (x) {
+          ul.appendChild(hotItem(x));
+        });
+        body.appendChild(ul);
+      },
+      function () {
+        clear(body);
+        var retry = h("button", {
+          type: "button",
+          class: "btn sm",
+          text: "Try again",
+        });
+        retry.onclick = function () {
+          fillHotlines(body);
+        };
+        body.appendChild(
+          h("div", { class: "empty", role: "alert" }, [
+            h("p", { text: "Hotlines could not be loaded." }),
+            retry,
+          ]),
+        );
+      },
+    );
+  }
+  function openHotlines() {
+    if (!hotDialog) {
+      var body = h("div", { class: "hot-body" });
+      var close = h(
+        "button",
+        { type: "button", class: "hot-close", "aria-label": "Close hotlines" },
+        [h("i", { class: "fa-solid fa-xmark", "aria-hidden": "true" })],
+      );
+      hotDialog = h(
+        "dialog",
+        { class: "hot-dialog", "aria-labelledby": "hot-title" },
+        [
+          h("div", { class: "hot-head" }, [
+            h("h2", { id: "hot-title", text: "Hotlines" }),
+            close,
+          ]),
+          body,
+        ],
+      );
+      hotDialog._body = body;
+      close.addEventListener("click", function () {
+        hotDialog.close();
+      });
+      hotDialog.addEventListener("click", function (e) {
+        if (e.target === hotDialog) hotDialog.close();
+      });
+      hotDialog.addEventListener("close", function () {
+        document.documentElement.classList.remove("no-scroll");
+      });
+      document.body.appendChild(hotDialog);
+    }
+    fillHotlines(
+      hotDialog._body,
+    ); /* always fresh, so admin changes show at once */
+    document.documentElement.classList.add("no-scroll");
+    if (hotDialog.showModal) hotDialog.showModal();
+    else hotDialog.setAttribute("open", "");
+  }
+
   window.OGAUI = {
+    openHotlines: openHotlines,
     h: h,
     clear: clear,
     safeHref: safeHref,
@@ -755,15 +949,4 @@
     });
   }
 
-  OGA.onChange(renderAll); // reflect admin edits made in another tab
-
-  /*
-   * A storage event is fired in other tabs on the same origin,
-   * not in the tab that originally made the change.
-   */
-  window.addEventListener("storage", function (event) {
-    if (event.key === OGA.KEY || event.key === null) {
-      window.location.reload();
-    }
-  });
 })();

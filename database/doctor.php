@@ -58,7 +58,7 @@ bytes((string)ini_get('memory_limit')) >= 256 * 1048576 ? out('ok', 'memory_limi
 /* Database */
 try { $pdo = db(); out('ok', 'Connected to database "' . config('db.name') . '"'); }
 catch (Throwable $e) { out('fail', 'Database connection failed: ' . $e->getMessage()); exit(1); }
-$need = ['admin_users', 'programmes', 'levels', 'semesters', 'academic_sessions', 'departments', 'department_programmes', 'questions', 'question_requests', 'rate_limits'];
+$need = ['admin_users', 'programmes', 'levels', 'semesters', 'academic_sessions', 'departments', 'department_programmes', 'questions', 'question_requests', 'rate_limits', 'committee_terms', 'committee_members', 'hotlines'];
 $have = array_column(q_all('SELECT TABLE_NAME AS t FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()'), 't');
 $missing = array_diff($need, $have);
 $missing ? out('fail', 'Missing tables: ' . implode(', ', $missing) . '. Import database/schema.sql.') : out('ok', 'All tables exist');
