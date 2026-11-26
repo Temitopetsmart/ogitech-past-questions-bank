@@ -1311,3 +1311,48 @@ code {
     width: 100%;
   }
 }
+
+/* Responsive numbered pagination for admin tables */
+.table-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin: 1rem 0 2rem;
+}
+.pagination-summary {
+  margin: 0;
+  font-size: 0.88rem;
+}
+.pagination-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+.pagination-controls .btn {
+  min-width: 40px;
+  justify-content: center;
+}
+.pagination-controls .page-number.current {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+.pagination-controls .btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+@media (max-width: 560px) {
+  .table-pagination {
+    justify-content: center;
+  }
+  .pagination-summary {
+    flex-basis: 100%;
+    text-align: center;
+  }
+  .pagination-controls {
+    justify-content: center;
+  }
+}
