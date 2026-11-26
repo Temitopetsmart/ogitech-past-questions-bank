@@ -68,21 +68,16 @@ function calendar_row(int $id, bool $publishedOnly = false): array
 
 function pub_calendars(array $p): void
 {
-    $rows = q_all("
-        SELECT q.*, a.name AS session_name
-        FROM questions q
+    [$page, $per] = pagination_params($_GET, 20, 20);
+    $total = (int)q_val("SELECT COUNT(*) FROM questions WHERE document_type = 'calendar' AND is_published = 1");
+    $meta = pagination_meta($total, $page, $per);
+    $offset = ($page - 1) * $per;
+    $rows = q_all("SELECT q.*, a.name AS session_name FROM questions q
         JOIN academic_sessions a ON a.id = q.session_id
-        WHERE q.document_type = 'calendar'
-        AND q.is_published = 1
+        WHERE q.document_type = 'calendar' AND q.is_published = 1
         ORDER BY a.start_year DESC, q.created_at DESC, q.id DESC
-    ");
-
-    json_out([
-        'data' => array_map(
-            fn($r) => calendar_json($r),
-            $rows
-        )
-    ]);
+        LIMIT " . $per . " OFFSET " . $offset);
+    json_out(['data' => array_map(fn($r) => calendar_json($r), $rows), 'meta' => $meta]);
 }
 
 function pub_calendar_file(array $p): never
@@ -107,20 +102,16 @@ function pub_calendar_file(array $p): never
 
 function adm_calendars_list(array $p): void
 {
-    $rows = q_all("
-        SELECT q.*, a.name AS session_name
-        FROM questions q
+    [$page, $per] = pagination_params($_GET, 10, 10);
+    $total = (int)q_val("SELECT COUNT(*) FROM questions WHERE document_type = 'calendar'");
+    $meta = pagination_meta($total, $page, $per);
+    $offset = ($page - 1) * $per;
+    $rows = q_all("SELECT q.*, a.name AS session_name FROM questions q
         JOIN academic_sessions a ON a.id = q.session_id
         WHERE q.document_type = 'calendar'
         ORDER BY a.start_year DESC, q.created_at DESC, q.id DESC
-    ");
-
-    json_out([
-        'data' => array_map(
-            fn($r) => calendar_json($r, true),
-            $rows
-        )
-    ]);
+        LIMIT " . $per . " OFFSET " . $offset);
+    json_out(['data' => array_map(fn($r) => calendar_json($r, true), $rows), 'meta' => $meta]);
 }
 
 function adm_calendar_save(array $p): void
