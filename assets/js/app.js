@@ -586,7 +586,7 @@
                 : null,
               (function () {
                 var qualifications = String(person.qualifications || "")
-                  .split(/\\r?\\n/)
+                  .split(/\r?\n/)
                   .map(function (value) { return value.trim(); })
                   .filter(Boolean);
                 if (!qualifications.length) return null;
