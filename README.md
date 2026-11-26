@@ -125,6 +125,10 @@ oga-past-questions/
 ├── database/
 │   ├── schema.sql
 │   ├── seed.sql
+│   ├── migration-academic-calendars.sql
+│   ├── migration-leadership.sql
+│   ├── migration-leadership-profile-details.sql
+│   ├── migration-committee-hotlines.sql
 │   ├── migration-about-records.sql (legacy; unused)
 │   ├── create-admin.php
 │   ├── doctor.php
@@ -176,7 +180,18 @@ mysql -u root -p < database/seed.sql
 
 The seed creates the initial programmes, levels, semesters and academic sessions. Departments are added through the Main Admin area.
 
-Do not run `database/migration-about-records.sql` for a fresh installation. It belongs to an earlier database-backed About implementation and is no longer required.
+Apply the feature migrations once, in this order:
+
+```bash
+mysql -u root -p pqb_db < database/migration-academic-calendars.sql
+mysql -u root -p pqb_db < database/migration-leadership.sql
+mysql -u root -p pqb_db < database/migration-leadership-profile-details.sql
+mysql -u root -p pqb_db < database/migration-committee-hotlines.sql
+```
+
+Use the database name configured in `api/config.php` instead of `pqb_db` if it differs. The profile-details migration is safe to run after the updated leadership migration; it adds missing columns only.
+
+Do not run `database/migration-about-records.sql`. It belongs to the retired database-backed About implementation. If its tables already exist, leave them unused; do not drop them or import that migration again.
 
 ### 3. Configure the API
 
