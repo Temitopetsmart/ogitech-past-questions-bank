@@ -292,9 +292,9 @@
       return request("POST", "public/requests", { json: payload });
     },
 
-    committee: function (termId) {
+    committee: function (termId, page) {
       return request("GET", "public/committee", {
-        query: termId ? { term: termId } : null,
+        query: { term: termId || "", page: page || 1, perPage: 20 },
       });
     },
     hotlines: function () {
