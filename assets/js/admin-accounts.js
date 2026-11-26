@@ -2,7 +2,8 @@
 (function () {
   var A = OGAAdmin,
     h = A.h,
-    V = OGAValidate;
+    V = OGAValidate,
+    page = 1;
 
   A.register(
     "accounts",
@@ -14,7 +15,7 @@
   );
 
   function list(root) {
-    return A.api("GET", "admin/users").then(function (res) {
+    return A.api("GET", "admin/users", { query: { page: page } }).then(function (res) {
       A.clear(root);
       var me = A.user();
       root.appendChild(
@@ -83,6 +84,8 @@
         );
       });
       root.appendChild(box);
+      var pager = A.pagination(res.meta, function (nextPage) { page = nextPage; reload(root); });
+      if (pager) root.appendChild(pager);
       root.appendChild(
         A.card("What each role can do", [
           A.dl([
