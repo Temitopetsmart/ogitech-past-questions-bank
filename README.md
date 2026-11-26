@@ -2,14 +2,13 @@
 
 The OGITECH Past Questions Bank is a web-based academic resource for students of Ogun State Institute of Technology (OGITECH), Igbesa.
 
-It allows students to find and access published past examination questions using their department, programme, level, semester, course code and examination year.
+It helps students find published past examination questions using department, programme, level, semester, course and examination year.
 
-The platform also provides an administration area for managing academic records, questions, institutional information and other public content.
+The platform includes a public website and an administration area for managing academic records, questions, calendars, leadership, committee information and student requests.
 
 ## Technology Stack
 
 ### Frontend
-
 - HTML5
 - CSS3
 - Vanilla JavaScript
@@ -18,7 +17,6 @@ The platform also provides an administration area for managing academic records,
 - Chart.js
 
 ### Backend
-
 - PHP 8.1+
 - MySQL / MariaDB
 - PDO
@@ -30,20 +28,15 @@ There is no frontend build process or framework dependency.
 ## Main Features
 
 ### Public Website
-
-- Browse published past questions.
-- Search by course code or course title.
+- Browse and search published past questions.
 - Filter by department, programme, level, semester and academic session.
-- View question details.
-- Preview and download question documents.
+- View question details and preview or download documents.
 - Request missing past questions.
 - View institution-wide academic calendars.
-- View institutional and project history.
-- View historical institutional leaders and SUG office holders.
-- View current executive information and public hotlines.
+- View current executive information, committee information and public hotlines.
+- Read the static About page and project history.
 
 ### Question Management
-
 - Upload PDF documents.
 - Upload multiple images and convert them into one PDF.
 - Edit question details.
@@ -53,11 +46,9 @@ There is no frontend build process or framework dependency.
 - Manage student requests.
 
 ### Academic Structure
-
 The academic structure is stored in MySQL.
 
 Main Admin can manage:
-
 - Departments.
 - ND and HND programmes.
 - Academic levels.
@@ -65,12 +56,9 @@ Main Admin can manage:
 - Academic sessions.
 - Department-to-programme relationships.
 
-Departments are not maintained as a hardcoded JavaScript list. They are created and managed from the administration area and loaded through the API.
-
-Each department can be linked to the programmes it actually offers.
+Departments are not maintained as a hardcoded JavaScript list. They are created and managed from the administration area and loaded through the API. Each department can be linked to the programmes it actually offers.
 
 ### Academic Calendar
-
 - Upload academic calendar PDFs.
 - Associate calendars with academic sessions.
 - Publish or unpublish calendars.
@@ -78,40 +66,33 @@ Each department can be linked to the programmes it actually offers.
 
 Academic calendars are institution-wide resources and are not restricted to one department or level.
 
-### About Page and Historical Records
+### About Page — Static Historical Record
 
-The About page is database-backed.
+The About page is a static source-code page located at `about.html`.
 
-Main Admin can manage:
+- Its text and historical entries are written directly in the HTML source.
+- It does not read or write About content in MySQL.
+- It has no About API endpoint.
+- It has no About editor or management section in the admin dashboard.
+- Administrators cannot change it through the application.
+- Changes require a developer with source-code access to edit `about.html` (and, where needed, its styles) and deploy the updated website.
 
-- Project introduction.
-- History of the Past Questions Bank.
-- Institution history.
-- Project purpose and objectives.
-- Historical notes and milestones.
-- Names of important institutional and student leaders.
-- Official positions and organisations.
-- Tenure or service periods.
-- Biographies and historical contributions.
-- Public visibility of each historical record.
+This page is intended to preserve the project's background, purpose, institutional context, verified milestones and historical leadership. Names, titles, dates and contributions should be checked against reliable records before publication.
 
-Historical people are stored as separate database records. Adding a new office holder does not require replacing the previous office holder's record. Records can be hidden from the public page while remaining stored in the database.
+**Legacy database note:** Earlier versions introduced `about_content` and `about_people` tables through `database/migration-about-records.sql`. The current application no longer uses these tables. If they already exist in a database, leave them unused; this change does not require dropping tables or altering existing academic, question or user data. Do not run the legacy About migration for a fresh installation.
 
 ### Administration and Access Control
 
-The platform has two administrator roles:
+The platform has two administrator roles.
 
 **Main Admin**
-
 - Full administrative access.
 - Manages academic structure.
 - Manages administrator accounts.
 - Manages leadership and executive information.
-- Manages the About page and historical records.
 - Manages calendars, committee information and hotlines.
 
 **Question Manager**
-
 - Manages past questions.
 - Handles student requests.
 - Does not have access to Main Admin-only features.
@@ -129,7 +110,6 @@ oga-past-questions/
 │   ├── config.example.php
 │   ├── lib/
 │   └── routes/
-│       ├── about.php
 │       ├── admin.php
 │       ├── calendars.php
 │       ├── committee.php
@@ -145,7 +125,7 @@ oga-past-questions/
 ├── database/
 │   ├── schema.sql
 │   ├── seed.sql
-│   ├── migration-about-records.sql
+│   ├── migration-about-records.sql (legacy; unused)
 │   ├── create-admin.php
 │   ├── doctor.php
 │   └── backup.php
@@ -163,16 +143,10 @@ oga-past-questions/
 ## Installation
 
 ### Requirements
-
 - Apache
 - PHP 8.1 or later
 - MySQL 8 or MariaDB 10.4+
-- PHP extensions:
-  - PDO MySQL
-  - GD
-  - mbstring
-  - fileinfo
-  - exif
+- PHP extensions: PDO MySQL, GD, mbstring, fileinfo and exif
 
 Apache should have `mod_rewrite` and `mod_headers` enabled, with `AllowOverride All` for the project directory.
 
@@ -200,35 +174,13 @@ Import the initial academic structure:
 mysql -u root -p < database/seed.sql
 ```
 
-Run the About page migration:
-
-```bash
-mysql -u root -p pqb_db < database/migration-about-records.sql
-```
-
-For Windows PowerShell, use:
-
-```powershell
-Get-Content .\database\migration-about-records.sql | C:\xampp\mysql\bin\mysql.exe -u root -p pqb_db
-```
-
 The seed creates the initial programmes, levels, semesters and academic sessions. Departments are added through the Main Admin area.
+
+Do not run `database/migration-about-records.sql` for a fresh installation. It belongs to an earlier database-backed About implementation and is no longer required.
 
 ### 3. Configure the API
 
-Copy:
-
-```text
-api/config.example.php
-```
-
-to:
-
-```text
-api/config.php
-```
-
-Configure the database connection and private storage paths.
+Copy `api/config.example.php` to `api/config.php`, then configure the database connection and private storage paths.
 
 `api/config.php` must not be committed to Git.
 
@@ -280,17 +232,11 @@ http://localhost/oga-past-questions/admin/
 
 ## Database and Content Management
 
-The database is the source of truth for academic structure, questions, requests, leadership records, committee information, hotlines and About page content.
+The database is the source of truth for academic structure, questions, requests, leadership records, committee information, hotlines and calendars.
 
-The public website retrieves database-managed content through the PHP API.
-
-The About page uses:
-
-- `about_content` for the main institutional and project information.
-- `about_people` for historical people and office holders.
+The public website retrieves database-managed content through the PHP API. The About page is the exception: it is static HTML and is not connected to the database.
 
 Departments and their programme relationships use:
-
 - `departments`
 - `programmes`
 - `department_programmes`
@@ -319,11 +265,7 @@ php database/backup.php
 
 The backup process creates compressed database and file backups using the configured private backup directory.
 
-Schedule backups daily using Windows Task Scheduler or Linux cron.
-
-Keep an additional copy outside the application server.
-
-A backup should be tested by restoring it to a separate database and checking the restored files.
+Schedule backups daily using Windows Task Scheduler or Linux cron. Keep an additional copy outside the application server. Test backups by restoring them to a separate database and checking the restored files.
 
 ## Deployment Checklist
 
@@ -334,11 +276,10 @@ A backup should be tested by restoring it to a separate database and checking th
 - [ ] Confirm database permissions are restricted.
 - [ ] Create the production Main Admin account.
 - [ ] Add the official departments and their programme offerings.
-- [ ] Add verified institutional history and project information.
-- [ ] Add verified historical people and their tenure periods.
+- [ ] Verify the names, official titles and dates shown on the static About page.
 - [ ] Test uploads, publishing, previewing and downloads.
 - [ ] Test both administrator roles.
-- [ ] Confirm public pages load database-managed information.
+- [ ] Confirm public pages load database-managed information where applicable.
 - [ ] Take a backup and test restoration.
 
 ## Maintenance
@@ -346,10 +287,11 @@ A backup should be tested by restoring it to a separate database and checking th
 Keep the PHP application, database and private storage backed up.
 
 When updating the application:
-
 1. Back up the database and storage.
 2. Pull or deploy the reviewed code changes.
 3. Run any new database migrations.
 4. Run the health check.
 5. Test the public website and administration area.
 6. Confirm that existing questions and documents remain accessible.
+
+To update the About page, edit its static source in `about.html`, review the change, and deploy the updated website. No database migration is needed.
