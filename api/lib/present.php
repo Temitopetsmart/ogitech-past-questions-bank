@@ -52,7 +52,7 @@ function question_filters(array $in, bool $admin): array
     if (!$admin) $where[] = 'q.is_published = 1';
     foreach (['department' => 'q.department_id', 'programme' => 'q.programme_id', 'level' => 'q.level_id', 'semester' => 'q.semester_id', 'session' => 'q.session_id', 'year' => 'q.exam_year'] as $k => $col) {
         if (isset($in[$k]) && $in[$k] !== '') {
-            $n = filter_var($in[$k], FILTER_VALIDATE_INT);
+            $n = filter_var($in[$k], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             if ($n === false) fail(400, 'bad_filter', "Invalid $k filter.");
             $where[] = "$col = ?"; $args[] = $n;
         }
@@ -66,7 +66,10 @@ function question_filters(array $in, bool $admin): array
             default     => fail(400, 'bad_filter', 'Invalid status filter.'),
         };
     }
-    $term = clean((string)($in['q'] ?? ''));
+    $rawTerm = $in['q'] ?? '';
+    if (!is_scalar($rawTerm)) fail(400, 'bad_search', 'Search must be plain text.');
+    $term = clean((string)$rawTerm);
+    if (preg_match('/[<>]/', $term)) fail(400, 'bad_search', 'Search cannot contain HTML markup.');
     if ($term !== '') {
         $term = mb_substr($term, 0, 80);
         $tokens = array_slice(preg_split('/\s+/u', $term), 0, 6);
