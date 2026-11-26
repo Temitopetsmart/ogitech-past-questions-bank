@@ -146,10 +146,16 @@ function adm_requests_list(array $p): void
 {
     $status = $_GET['status'] ?? '';
     if (!in_array($status, ['', 'new', 'resolved'], true)) fail(400, 'bad_filter', 'Invalid status filter.');
+    [$page, $per] = pagination_params($_GET, 10, 10);
+    $where = $status ? ' WHERE r.status = ?' : '';
+    $args = $status ? [$status] : [];
+    $total = (int)q_val('SELECT COUNT(*) FROM question_requests r' . $where, $args);
+    $meta = pagination_meta($total, $page, $per);
+    $offset = ($page - 1) * $per;
     $rows = q_all('SELECT r.*, d.name AS department_name FROM question_requests r LEFT JOIN departments d ON d.id = r.department_id'
-        . ($status ? ' WHERE r.status = ?' : '') . ' ORDER BY r.created_at DESC, r.id DESC LIMIT 500', $status ? [$status] : []);
-    $c = q_one("SELECT COUNT(*) AS total, COALESCE(SUM(status='new'),0) AS n FROM question_requests");
-    json_out(['data' => array_map('request_json', $rows), 'meta' => ['all' => (int)$c['total'], 'new' => (int)$c['n'], 'resolved' => (int)$c['total'] - (int)$c['n']]]);
+        . $where . ' ORDER BY r.created_at DESC, r.id DESC LIMIT ' . $per . ' OFFSET ' . $offset, $args);
+    $counts = q_one("SELECT COUNT(*) AS total, COALESCE(SUM(status='new'),0) AS n FROM question_requests");
+    json_out(['data' => array_map('request_json', $rows), 'meta' => $meta + ['all' => (int)$counts['total'], 'new' => (int)$counts['n'], 'resolved' => (int)$counts['total'] - (int)$counts['n']]]);
 }
 
 function adm_request_status(array $p): void
