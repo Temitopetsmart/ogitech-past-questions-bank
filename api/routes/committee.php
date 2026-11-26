@@ -312,9 +312,37 @@ function reorder_rows(string $table, array $ids, ?array $scope = null): void
 function adm_member_reorder(array $p): void
 {
     $in = body();
-    $term = (int)($in['termId'] ?? 0);
-    if (!is_array($in['ids'] ?? null) || $term < 1) fail(422, 'validation', 'Invalid order.');
-    reorder_rows('committee_members', $in['ids'], ['term_id', $term]);
+    $term = filter_var($in['termId'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    $memberId = filter_var($in['memberId'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    $direction = $in['direction'] ?? '';
+    if (!$term || !$memberId || !in_array($direction, ['up', 'down'], true)) {
+        fail(422, 'validation', 'Choose a valid member and move direction.');
+    }
+
+    // Read only ordered IDs, so moving a member across pagination boundaries does not load all member profiles.
+    $ids = array_map('intval', array_column(
+        q_all('SELECT id FROM committee_members WHERE term_id = ? ORDER BY sort_order, id', [$term]),
+        'id'
+    ));
+    $index = array_search($memberId, $ids, true);
+    if ($index === false) fail(404, 'not_found', 'Committee member not found in this administration.');
+    $target = $index + ($direction === 'up' ? -1 : 1);
+    if ($target < 0 || $target >= count($ids)) fail(409, 'edge', 'This member is already at the end of the list.');
+    $swap = $ids[$target];
+    $ids[$target] = $ids[$index];
+    $ids[$index] = $swap;
+
+    $pdo = db();
+    $pdo->beginTransaction();
+    try {
+        foreach ($ids as $position => $id) {
+            q('UPDATE committee_members SET sort_order = ? WHERE id = ? AND term_id = ?', [$position + 1, $id, $term]);
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
     json_out(['ok' => true]);
 }
 
