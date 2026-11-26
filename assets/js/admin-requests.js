@@ -34,6 +34,7 @@
   function list(root) {
     return A.api("GET", "admin/requests", { query: { status: filter, page: page } }).then(
       function (res) {
+        page = res.meta.page;
         A.clear(root);
         A.badges.requests = res.meta.new;
         A.refreshNav();
