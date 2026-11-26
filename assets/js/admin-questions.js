@@ -58,6 +58,7 @@
     A.clear(root);
     var rows = [],
       total = 0,
+      pageMeta = null,
       page = 1,
       ticket = 0,
       timer = null;
@@ -205,10 +206,10 @@
         "aria-live": "polite",
       }),
       box = h("div", { class: "qlist" }),
-      more = h("div", { class: "more" });
+      pager = h("div");
     root.appendChild(count);
     root.appendChild(box);
-    root.appendChild(more);
+    root.appendChild(pager);
 
     function readFilters() {
       flt.q = f.q.get();
@@ -233,7 +234,7 @@
           ]),
         );
       }
-      more.hidden = true;
+      A.clear(pager);
       return A.api("GET", "admin/questions", {
         query: {
           q: flt.q,
@@ -248,8 +249,10 @@
       }).then(
         function (res) {
           if (mine !== ticket) return;
-          rows = reset ? res.data : rows.concat(res.data);
+          rows = res.data;
           total = res.meta.total;
+          page = res.meta.page;
+          pageMeta = res.meta;
           paint();
         },
         function (err) {
@@ -273,13 +276,10 @@
 
     function paint() {
       A.clear(box);
-      A.clear(more);
-      more.hidden = false;
-      count.textContent =
-        rows.length +
-        " of " +
-        total +
-        (total === 1 ? " question" : " questions");
+      A.clear(pager);
+      count.textContent = pageMeta && total
+        ? "Showing " + pageMeta.from + "–" + pageMeta.to + " of " + total + " questions"
+        : "0 questions";
       if (!rows.length) {
         var filtered =
           flt.q ||
@@ -321,18 +321,11 @@
       rows.forEach(function (x) {
         box.appendChild(item(x));
       });
-      if (rows.length < total)
-        more.appendChild(
-          A.btn(
-            "Show more (" + (total - rows.length) + " left)",
-            "fa-chevron-down",
-            "ghost",
-            function () {
-              page += 1;
-              fetchPage(false);
-            },
-          ),
-        );
+      var controls = A.pagination(pageMeta, function (nextPage) {
+        page = nextPage;
+        fetchPage(false);
+      });
+      if (controls) pager.appendChild(controls);
     }
 
     function item(x) {
