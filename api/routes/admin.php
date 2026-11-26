@@ -95,7 +95,8 @@ function adm_question_save(array $p): void
             q("INSERT INTO questions ($cols) VALUES ($marks)", $vals);
             $newId = (int)$pdo->lastInsertId();
         }
-        $reqId = filter_var($c->raw('requestId'), FILTER_VALIDATE_INT);
+        $rawRequestId = $c->raw('requestId');
+        $reqId = is_scalar($rawRequestId) ? filter_var($rawRequestId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) : false;
         if (!$old && $reqId) q("UPDATE question_requests SET status='resolved', resolved_at=UTC_TIMESTAMP(), resolved_by=? WHERE id=? AND status='new'", [$user['id'], $reqId]);
         $pdo->commit();
     } catch (Throwable $e) {
@@ -113,7 +114,7 @@ function adm_question_flag(string $col, array $p): void
     $r = get_question(path_id($p), false);
     $in = body();
     if (!array_key_exists('value', $in)) fail(422, 'validation', 'Send {"value": true|false}.');
-    $v = filter_var($in['value'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+    $v = is_scalar($in['value']) ? filter_var($in['value'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null;
     if ($v === null) fail(422, 'validation', 'The value must be true or false.');
     q("UPDATE questions SET $col = ?, updated_by = ? WHERE id = ?", [$v ? 1 : 0, $user['id'], $r['id']]);
     json_out(['data' => question_json(get_question((int)$r['id'], false), true)]);
