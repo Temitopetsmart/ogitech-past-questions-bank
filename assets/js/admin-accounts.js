@@ -17,6 +17,7 @@
   function list(root) {
     return A.api("GET", "admin/users", { query: { page: page } }).then(function (res) {
       A.clear(root);
+      page = res.meta ? res.meta.page : page;
       var me = A.user();
       root.appendChild(
         A.title(
