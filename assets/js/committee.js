@@ -127,7 +127,7 @@
     var meta = res.meta || { page: 1, pages: 1, total: res.data.length, from: 1, to: res.data.length };
     if (meta) {
       var nav = h("nav", { class: "pagination", "aria-label": "Executive pages" });
-      var summary = h("p", { class: "muted pagination-status", text: "Showing " + meta.from + "–" + meta.to + " of " + meta.total + " executives" });
+      var summary = h("p", { class: "muted pagination-status", text: "Showing " + meta.from + "–" + meta.to + " of " + meta.total + " executives · Page " + meta.page + " of " + meta.pages });
       var pages = h("div", { class: "pagination-pages" });
       var prev = h("button", { type: "button", class: "btn alt", text: "Previous" });
       prev.disabled = meta.page <= 1;
