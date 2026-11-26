@@ -19,7 +19,7 @@
   }
 
   function list(root) {
-    return A.api("GET", "admin/leadership").then(function (res) {
+    return A.api("GET", "admin/leadership", { query: { page: page } }).then(function (res) {
       var items = res.data || [];
       A.clear(root);
 
@@ -105,6 +105,8 @@
       });
 
       root.appendChild(box);
+      var pager = A.pagination(res.meta, function (nextPage) { page = nextPage; reload(root); });
+      if (pager) root.appendChild(pager);
     });
   }
 
